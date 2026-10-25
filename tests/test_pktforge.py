@@ -34,7 +34,8 @@ def run(*argv):
 
 class Examples(unittest.TestCase):
     def test_examples_lint_clean(self):
-        for name in ("minimal", "bank-cs5", "campus-vlan", "wan-ospf-areas", "hub-spoke-43"):
+        for name in ("minimal", "bank-cs5", "campus-vlan", "ha-campus", "wifi-campus", "wan-ospf-areas",
+                     "two-wan-modules", "model-mix", "hub-spoke-43"):
             s = specmod.load(os.path.join(EXAMPLES, name + ".json"))
             self.assertEqual([i for i in cli.check_spec(s)], [], name)
 
@@ -273,8 +274,12 @@ class StressLessons(unittest.TestCase):
         self.assertIn("X009", codes(lint.check_xml(root)))
 
     def test_rejected_model_is_an_error(self):
+        from unittest import mock
+        from pktforge import ports
         s = sp([{"name": "AP", "model": "AccessPoint-PT"}], [])
-        self.assertIn("E018", codes(cli.check_spec(s)))
+        self.assertNotIn("E018", codes(cli.check_spec(s)))          # a fresh PT 9.0.1 template loads (LESSONS L11)
+        with mock.patch.dict(ports.REJECTED, {"AccessPoint-PT": "test"}):
+            self.assertIn("E018", codes(cli.check_spec(s)))
 
     def test_fibre_port_is_an_error(self):
         sw = {"name": "SW", "model": "Switch-PT"}
@@ -310,7 +315,8 @@ class StressLessons(unittest.TestCase):
         from pktforge import catalog
         es = {e["model"]: e for e in catalog.entries()}
         self.assertEqual(es["2911"]["status"], "traffic-verified")
-        self.assertEqual(es["AccessPoint-PT"]["status"], "rejected")
+        self.assertEqual(es["AccessPoint-PT"]["status"], "traffic-verified")
+        self.assertEqual(es["Meraki-MX65W"]["status"], "ports-verified")
         self.assertEqual(es["LAP-PT"]["kind"], "access-point")
         md = catalog.markdown()
         self.assertIn("## Packet Tracer palette map", md)
@@ -399,6 +405,213 @@ class Cli(unittest.TestCase):
         self.assertIn("Serial0/0/1", ports_)
         self.assertIn("GigabitEthernet0/2", ports_)
         self.assertNotIn("GigabitEthernet0/3", ports_)
+
+
+def built(spec_obj):
+    lab, issues, _m = build.build_lab(spec_obj)
+    build._cleanup_seed()
+    return ET.fromstring(build.to_xml(lab)), issues
+
+
+def dev_of(root, name):
+    return next(d for d in root.findall("NETWORK/DEVICES/DEVICE") if d.findtext("ENGINE/NAME") == name)
+
+
+class ConfigParser(unittest.TestCase):
+    def test_interface_range_expands(self):
+        from pktforge import iosparse
+        self.assertEqual(iosparse.expand_range("Fa0/1 - 3, Gi0/1"),
+                         ["FastEthernet0/1", "FastEthernet0/2", "FastEthernet0/3", "GigabitEthernet0/1"])
+        self.assertEqual(iosparse.expand_range("fa0/23 - fa0/24"), ["FastEthernet0/23", "FastEthernet0/24"])
+        cfg = iosparse.parse(["interface range Fa0/1 - 2", " switchport mode access", " switchport access vlan 10"])
+        self.assertEqual({n: i.access_vlan for n, i in cfg.ifaces.items()},
+                         {"FastEthernet0/1": 10, "FastEthernet0/2": 10})
+
+    def test_ha_and_channel_commands_parse(self):
+        from pktforge import iosparse
+        cfg = iosparse.parse(["interface Gi0/0.10", " encapsulation dot1Q 10", " ip address 10.0.10.2 255.255.255.0",
+                              " standby 10 ip 10.0.10.1", " standby 10 priority 110", " standby 10 preempt",
+                              "interface Fa0/23", " channel-group 1 mode active"])
+        self.assertEqual(cfg.ifaces["GigabitEthernet0/0.10"].standby[10],
+                         {"ip": "10.0.10.1", "priority": 110, "preempt": True})
+        self.assertEqual((cfg.ifaces["FastEthernet0/23"].channel, cfg.ifaces["FastEthernet0/23"].channel_mode), (1, "active"))
+
+
+class L2Features(unittest.TestCase):
+    """EtherChannel, HSRP, port security and STP rules (LESSONS L17-L19). The ha-campus example is proven in Packet Tracer."""
+
+    def sw(self, name, cfg):
+        return {"name": name, "model": "2960-24TT", "config": cfg}
+
+    def bundle(self, a_cfg, b_cfg):
+        return sp([self.sw("A", a_cfg), self.sw("B", b_cfg)], [["A:Fa0/23", "B:Fa0/23"], ["A:Fa0/24", "B:Fa0/24"]])
+
+    GOOD = ["interface Port-channel1", " switchport mode trunk", "interface range Fa0/23 - 24",
+            " switchport mode trunk", " channel-group 1 mode active"]
+
+    def test_good_bundle_is_clean(self):
+        self.assertEqual(cli.check_spec(self.bundle(self.GOOD, self.GOOD)), [])
+
+    def test_channel_group_before_port_channel_is_flagged(self):
+        bad = ["interface range Fa0/23 - 24", " switchport mode trunk", " channel-group 1 mode active",
+               "interface Port-channel1", " switchport mode trunk"]
+        self.assertIn("E028", codes(cli.check_spec(self.bundle(bad, self.GOOD))))
+
+    def test_mismatched_modes_never_bundle(self):
+        passive = [l.replace("active", "on") for l in self.GOOD]
+        self.assertIn("E021", codes(cli.check_spec(self.bundle(self.GOOD, passive))))
+
+    def test_lacp_active_passive_is_fine(self):
+        passive = [l.replace("active", "passive") for l in self.GOOD]
+        self.assertNotIn("E021", codes(cli.check_spec(self.bundle(self.GOOD, passive))))
+
+    def test_channel_group_needs_a_mode(self):
+        s = sp([self.sw("A", ["interface Port-channel1", "interface Fa0/23", " channel-group 1"])], [])
+        self.assertIn("E026", codes(cli.check_spec(s)))
+
+    def test_port_security_needs_access_mode_first(self):
+        s = sp([self.sw("A", ["interface Fa0/3", " switchport port-security", " switchport mode access"])], [])
+        self.assertIn("E022", codes(cli.check_spec(s)))
+        ok = sp([self.sw("A", ["interface Fa0/3", " switchport mode access", " switchport port-security"])], [])
+        self.assertNotIn("E022", codes(cli.check_spec(ok)))
+
+    def test_stp_priority_must_be_multiple_of_4096(self):
+        s = sp([self.sw("A", ["spanning-tree vlan 1 priority 5000"])], [])
+        self.assertIn("E023", codes(cli.check_spec(s)))
+
+    def hsrp(self, vip2="10.0.0.1", vip_net="10.0.0.1"):
+        r = lambda n, ip, vip: {"name": n, "model": "2911", "config": [
+            "interface GigabitEthernet0/0", " ip address %s 255.255.255.0" % ip, " standby 1 ip %s" % vip, " no shutdown"]}
+        pc = {"name": "PC", "model": "PC-PT", "ip": "10.0.0.50/24", "gateway": "10.0.0.1"}
+        sw = {"name": "SW", "model": "2960-24TT"}
+        return sp([r("R1", "10.0.0.2", vip_net), r("R2", "10.0.0.3", vip2), pc, sw],
+                  [["R1:Gi0/0", "SW:Fa0/1"], ["R2:Gi0/0", "SW:Fa0/2"], ["PC:Fa0", "SW:Fa0/3"]])
+
+    def test_hsrp_virtual_ip_is_a_valid_gateway(self):
+        found = codes(cli.check_spec(self.hsrp()))
+        self.assertNotIn("E015", found)            # the gateway is the virtual IP, which no interface owns
+        self.assertNotIn("E011", found)            # and the shared virtual IP is not a duplicate address
+
+    def test_hsrp_group_with_two_virtual_ips(self):
+        self.assertIn("E025", codes(cli.check_spec(self.hsrp(vip2="10.0.0.9"))))
+
+    def test_hsrp_virtual_ip_outside_subnet(self):
+        self.assertIn("E024", codes(cli.check_spec(self.hsrp(vip2="10.0.0.1", vip_net="10.9.9.1"))))
+
+
+class ServerDhcp(unittest.TestCase):
+    SRV = {"name": "S", "model": "Server-PT", "ip": "10.0.20.10/24", "gateway": "10.0.20.1",
+           "dhcp_pools": [{"network": "10.0.10.0/24", "gateway": "10.0.10.1", "dns": "10.0.20.10",
+                           "start": "10.0.10.100", "max_users": 50}]}
+
+    def test_pool_is_written_and_enabled(self):
+        root, _ = built(sp([self.SRV], []))
+        srv = dev_of(root, "S")
+        pools = srv.findall("ENGINE/DHCP_SERVERS/ASSOCIATED_PORTS/ASSOCIATED_PORT/DHCP_SERVER[ENABLED='1']/POOLS/POOL")
+        self.assertEqual(len(pools), 1)
+        p = pools[0]
+        self.assertEqual((p.findtext("NETWORK"), p.findtext("MASK"), p.findtext("DEFAULT_ROUTER"), p.findtext("DNS_SERVER"),
+                          p.findtext("START_IP"), p.findtext("MAX_USERS")),
+                         ("10.0.10.0", "255.255.255.0", "10.0.10.1", "10.0.20.10", "10.0.10.100", "50"))
+
+    def test_gateway_outside_pool(self):
+        bad = dict(self.SRV, dhcp_pools=[{"network": "10.0.10.0/24", "gateway": "10.7.7.1"}])
+        self.assertIn("E027", codes(cli.check_spec(sp([bad], []))))
+
+    def test_bad_pool_is_a_spec_error(self):
+        with self.assertRaises(Exception):
+            sp([dict(self.SRV, dhcp_pools=[{"gateway": "1.1.1.1"}])], [])
+
+    def test_helper_without_matching_pool_warns_and_pool_satisfies_w070(self):
+        r = {"name": "R", "model": "2911", "config": [
+            "interface GigabitEthernet0/0", " ip address 10.0.10.1 255.255.255.0", " ip helper-address 10.0.20.10",
+            "interface GigabitEthernet0/1", " ip address 10.0.20.1 255.255.255.0"]}
+        sw = {"name": "SW", "model": "2960-24TT"}
+        pc = {"name": "PC", "model": "PC-PT", "dhcp": True}
+        links = [["PC:Fa0", "SW:Fa0/1"], ["SW:Fa0/2", "R:Gi0/0"], ["S:Fa0", "R:Gi0/1"]]
+        other = dict(self.SRV, dhcp_pools=[{"network": "10.0.99.0/24"}])
+        self.assertIn("W071", codes(cli.check_spec(sp([r, sw, pc, other], links))))
+        self.assertNotIn("W071", codes(cli.check_spec(sp([r, sw, pc, self.SRV], links))))
+
+
+class Cables(unittest.TestCase):
+    """Console and fibre cables are written exactly as Packet Tracer 9.0.1 saves them (LESSONS L16)."""
+
+    DEVS = [{"name": "SWA", "model": "Switch-PT"}, {"name": "SWB", "model": "Switch-PT"},
+            {"name": "PC", "model": "PC-PT"}, {"name": "R", "model": "2911"}]
+
+    def test_fibre_and_console_xml(self):
+        root, _ = built(sp(self.DEVS, [["SWA:Fa5/1", "SWB:Fa5/1"], {"a": "PC:RS232", "b": "R:Console", "type": "console"}]))
+        fib, con = root.findall("NETWORK/LINKS/LINK")
+        self.assertEqual((fib.findtext("TYPE"), fib.findtext("CABLE/TYPE"), fib.findtext("CABLE/OVERWITE_MISMATCH_FIBER")),
+                         ("eFiber", "eMultiMode", "false"))
+        self.assertEqual((con.findtext("TYPE"), con.findtext("CABLE/TYPE")), ("eCopper", "eRollOver"))
+        self.assertEqual([p.text for p in con.findall("CABLE/PORT")], ["RS 232", "Console"])
+
+    def test_console_cable_is_not_a_data_link(self):
+        pc = {"name": "PC", "model": "PC-PT", "ip": "10.0.0.5/24", "gateway": "10.0.0.1"}
+        s = sp([pc, {"name": "R", "model": "2911"}], [["PC:RS232", "R:Console"]])
+        self.assertEqual(cli.check_spec(s), [])
+
+    def test_copper_on_fibre_port_and_fibre_on_copper_port(self):
+        self.assertIn("E009", codes(cli.check_spec(sp(self.DEVS, [["PC:Fa0", "SWA:Fa4/1"]]))))
+        self.assertIn("E029", codes(cli.check_spec(sp(self.DEVS, [{"a": "SWA:Fa0/1", "b": "SWB:Fa0/1", "type": "fiber"}]))))
+
+    def test_xml_audit_reads_fibre_and_console(self):
+        root, _ = built(sp(self.DEVS, [["SWA:Fa5/1", "SWB:Fa5/1"], ["PC:RS232", "R:Console"]]))
+        self.assertEqual([i for i in lint.check_net(lint.net_from_xml(root)) if i.severity == "error"], [])
+
+
+class SecondWanModule(unittest.TestCase):
+    def test_serial_links_on_the_second_module(self):
+        s = specmod.load(os.path.join(EXAMPLES, "two-wan-modules.json"))
+        root, _ = built(s)
+        r1 = dev_of(root, "R1")
+        bays = [sl for sl in r1.iter("SLOT") if sl.findtext("TYPE") == "eInterfaceCard"]
+        clocked = [[p.findtext("CLOCKRATEFLAG") for p in bay.iter("PORT") if p.findtext("TYPE") == "eSmartSerial"]
+                   for bay in bays[:2]]
+        self.assertEqual(clocked, [["true", "false"], ["true", "true"]])     # Serial0/0/0; Serial0/1/0 and 0/1/1
+        self.assertEqual(build.model_ports("2911", ["HWIC-2T", "HWIC-2T"])[-4:],
+                         ["Serial0/0/0", "Serial0/0/1", "Serial0/1/0", "Serial0/1/1"])
+
+
+class WirelessAndPortNames(unittest.TestCase):
+    def test_ssid_reaches_ap_and_clients_and_nic_is_fitted(self):
+        root, issues = built(specmod.load(os.path.join(EXAMPLES, "wifi-campus.json")))
+        self.assertEqual(dev_of(root, "AP1").findtext("ENGINE/WIRELESS_SERVER/WIRELESS_COMMON/SSID"), "CAMPUS")
+        lap = dev_of(root, "LAP1")
+        self.assertEqual(lap.findtext("ENGINE/WIRELESS_CLIENT/WIRELESS_COMMON/SSID"), "CAMPUS")
+        self.assertEqual(lap.findtext("ENGINE/WIRELESS_CLIENT/CURRENT_PROFILE/WIRELESS_PROFILE/SSID"), "CAMPUS")
+        self.assertEqual(lap.findtext(".//PORT/TYPE"), "eHostWirelessG")
+        self.assertIn("S061", codes(issues))
+        static = dev_of(root, "LAP2")
+        self.assertEqual(static.findtext(".//PORT/IP"), "10.9.1.50")
+        self.assertEqual(static.findtext("ENGINE/WIRELESS_CLIENT/CURRENT_PROFILE/WIRELESS_PROFILE/IP_ADDRESS"), "10.9.1.50")
+
+    def test_clients_are_placed_inside_ap_coverage(self):
+        root, issues = built(specmod.load(os.path.join(EXAMPLES, "wifi-campus.json")))
+        xy = lambda n: tuple(int(dev_of(root, n).findtext("WORKSPACE/LOGICAL/" + a)) for a in "XY")
+        ap = xy("AP1")
+        for n in ("LAP1", "LAP2"):
+            self.assertLess(((xy(n)[0] - ap[0]) ** 2 + (xy(n)[1] - ap[1]) ** 2) ** 0.5, 140)
+        self.assertNotIn("W092", codes(issues))
+
+    def test_wireless_lint(self):
+        lap = {"name": "L", "model": "Laptop-PT", "wireless": "GUEST"}
+        ap = {"name": "AP", "model": "AccessPoint-PT", "wireless": {"ssid": "OTHER"}}
+        self.assertIn("W090", codes(cli.check_spec(sp([lap, ap], []))))
+        self.assertIn("E032", codes(cli.check_spec(sp([{"name": "S", "model": "2960-24TT", "wireless": "X"}], []))))
+        far = dict(lap, wireless="OTHER", at=[900, 900])
+        _, issues = built(sp([far, dict(ap, at=[100, 100])], []))
+        self.assertIn("W092", codes(issues))
+
+    def test_port_names_with_spaces_are_normalised(self):
+        s = sp([{"name": "MX", "model": "Meraki-MX65W"}, {"name": "SW", "model": "2960-24TT"}],
+               [["MX:Gi3", "SW:Gi0/1"], ["MX:Ethernet 12", "SW:Fa0/24"]])
+        self.assertEqual(cli.check_spec(s), [])
+        root, _ = built(s)
+        self.assertEqual([p.text for p in root.findall("NETWORK/LINKS/LINK")[0].findall("CABLE/PORT")],
+                         ["GigabitEthernet 3", "GigabitEthernet0/1"])
 
 
 if __name__ == "__main__":

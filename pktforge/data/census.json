@@ -1,37 +1,146 @@
 {
-  "packet_tracer": "9.0.1.0858",
-  "tested": "2026-10-25",
-  "how": "Each model was placed in a generated lab with the first and last Ethernet port of every family cabled to a 2960 collector switch (scripts/census.py). The lab was opened in Packet Tracer 9.0.1 and re-saved; a model is 'ports_verified' when Packet Tracer opened the file and kept those cables under the same port names.",
-  "traffic_verified": ["2911", "2960-24TT", "PC-PT", "Server-PT"],
-  "ports_verified": [
-    "1841", "1941", "2620XM", "2621XM", "2811", "2901", "2911", "ISR4321", "ISR4331",
-    "819HG-4G-IOX", "819HGW", "829", "CGR1240", "IR1101", "IR8340", "Router-PT",
-    "2950-24", "2950T-24", "2960-24TT", "3560-24PS", "3650-24PS", "Switch-PT", "Hub-PT",
-    "IE-2000", "IE-3400", "IE-9320", "IE-9320-26S2C",
-    "5505", "PC-PT", "Server-PT", "Laptop-PT", "LAP-PT", "DataHistorianServer", "Meraki-Server",
-    "Sniffer", "CyberObserver"
-  ],
-  "rejected": {
-    "DSL-Modem-PT": "Packet Tracer 9.0.1 reports the file as incompatible",
-    "HomeRouter-PT-AC": "Packet Tracer 9.0.1 reports the file as incompatible",
-    "Linksys-WRT300N": "Packet Tracer 9.0.1 reports the file as incompatible",
-    "Meraki-MX65W": "Packet Tracer 9.0.1 reports the file as incompatible",
-    "Central-Office-Server": "Packet Tracer 9.0.1 reports the file as incompatible",
-    "AccessPoint-PT": "Packet Tracer 9.0.1 reports the file as incompatible",
-    "AccessPoint-PT-A": "Packet Tracer 9.0.1 reports the file as incompatible",
-    "AccessPoint-PT-N": "Packet Tracer 9.0.1 reports the file as incompatible"
-  },
-  "port_renames": {
-    "2950T-24": {"GigabitEthernet1/1": "GigabitEthernet0/1", "GigabitEthernet1/2": "GigabitEthernet0/2"}
-  },
-  "fiber_ports": {
-    "Router-PT": ["FastEthernet4/0", "FastEthernet5/0"],
-    "Switch-PT": ["FastEthernet4/1", "FastEthernet5/1"],
-    "IE-3400": ["GigabitEthernet1/1"]
-  },
-  "notes": {
-    "fiber_ports": "Packet Tracer drops a copper cable plugged into these; pktforge cannot draw fibre cables yet.",
-    "port_renames": "The template's saved config uses the left name; Packet Tracer itself calls the port the right name.",
-    "extra_device": "Packet Tracer adds a 'Power Distribution Device0' to every lab it saves; that is normal."
+ "packet_tracer": "9.0.1.0858",
+ "tested": "2026-10-25",
+ "how": "Each model was placed in a generated lab with the first and last Ethernet port of every family cabled to a 2960 collector switch (scripts/census.py). The lab was opened in Packet Tracer 9.0.1 and re-saved; a model is 'ports_verified' when Packet Tracer opened the file and kept those cables under the same port names.",
+ "traffic_verified": [
+  "1841",
+  "1941",
+  "2811",
+  "2901",
+  "2911",
+  "2950-24",
+  "2950T-24",
+  "2960-24TT",
+  "3560-24PS",
+  "3650-24PS",
+  "AccessPoint-PT",
+  "ISR4321",
+  "ISR4331",
+  "Laptop-PT",
+  "PC-PT",
+  "Server-PT",
+  "Switch-PT"
+ ],
+ "ports_verified": [
+  "1841",
+  "1941",
+  "2620XM",
+  "2621XM",
+  "2811",
+  "2901",
+  "2911",
+  "2950-24",
+  "2950T-24",
+  "2960-24TT",
+  "3560-24PS",
+  "3650-24PS",
+  "5505",
+  "819HG-4G-IOX",
+  "819HGW",
+  "829",
+  "AccessPoint-PT",
+  "AccessPoint-PT-A",
+  "AccessPoint-PT-AC",
+  "AccessPoint-PT-N",
+  "CGR1240",
+  "Central-Office-Server",
+  "CyberObserver",
+  "DSL-Modem-PT",
+  "DataHistorianServer",
+  "HomeRouter-PT-AC",
+  "Hub-PT",
+  "IE-2000",
+  "IE-3400",
+  "IE-9320",
+  "IE-9320-26S2C",
+  "IR1101",
+  "IR8340",
+  "ISR4321",
+  "ISR4331",
+  "LAP-PT",
+  "Laptop-PT",
+  "Linksys-WRT300N",
+  "Meraki-MX65W",
+  "Meraki-Server",
+  "PC-PT",
+  "Router-PT",
+  "Server-PT",
+  "Sniffer",
+  "Switch-PT"
+ ],
+ "rejected": {},
+ "port_renames": {
+  "2950T-24": {
+   "GigabitEthernet1/1": "GigabitEthernet0/1",
+   "GigabitEthernet1/2": "GigabitEthernet0/2"
   }
+ },
+ "fiber_ports": {
+  "Router-PT": [
+   "FastEthernet4/0",
+   "FastEthernet5/0"
+  ],
+  "Switch-PT": [
+   "FastEthernet4/1",
+   "FastEthernet5/1"
+  ],
+  "IE-3400": [
+   "GigabitEthernet1/1"
+  ]
+ },
+ "notes": [
+  "fiber_ports",
+  "port_renames",
+  "extra_device",
+  "9 templates that Packet Tracer 9.0.1 refused (all access points, home router, WRT300N, Meraki MX65W, DSL modem, Central Office server) were replaced with copies saved by Packet Tracer 9.0.1 itself (scripts/harvest_templates.py); the one-of-each lab then opened. Their port names come from the cable menu (port_names), not from a config."
+ ],
+ "port_names": {
+  "AccessPoint-PT": [
+   "Port 0"
+  ],
+  "AccessPoint-PT-A": [
+   "Port 0"
+  ],
+  "AccessPoint-PT-AC": [
+   "Port 0"
+  ],
+  "AccessPoint-PT-N": [
+   "Port 0"
+  ],
+  "Central-Office-Server": [
+   "Backbone"
+  ],
+  "DSL-Modem-PT": [
+   "Port 0",
+   "Port 1"
+  ],
+  "HomeRouter-PT-AC": [
+   "Internet",
+   "GigabitEthernet 1",
+   "GigabitEthernet 2",
+   "GigabitEthernet 3",
+   "GigabitEthernet 4"
+  ],
+  "Linksys-WRT300N": [
+   "Internet",
+   "Ethernet 1",
+   "Ethernet 2",
+   "Ethernet 3",
+   "Ethernet 4"
+  ],
+  "Meraki-MX65W": [
+   "Internet 1",
+   "Internet 2",
+   "GigabitEthernet 3",
+   "GigabitEthernet 4",
+   "GigabitEthernet 5",
+   "GigabitEthernet 6",
+   "GigabitEthernet 7",
+   "GigabitEthernet 8",
+   "GigabitEthernet 9",
+   "GigabitEthernet 10",
+   "Ethernet 11",
+   "Ethernet 12"
+  ]
+ }
 }

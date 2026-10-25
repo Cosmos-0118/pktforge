@@ -31,9 +31,13 @@ From a checkout without installing: `python -m pktforge <command>`.
 2. Put IP addresses in the router `config`, never in port fields. Use `/nn` on end-device `ip`.
 3. Pick models from `pktforge catalog` and copy port names from `pktforge ports MODEL` (they differ per model:
    `Gi0/0`, `Gi0/0/0`, `Gi1/0/1`...). Prefer `traffic-verified` (`2911`, `2960-24TT`, `PC-PT`, `Server-PT`);
-   say so when you use anything weaker. Never use a `rejected` model (access points are among them): tell the
-   user to add it by hand.
-3b. Start from the closest template: `pktforge init x -t campus-vlan | wan-ospf-areas | hub-spoke-43 | bank-cs5`.
+   say so when you use anything weaker. Never use a `rejected` model (none today; if a future Packet Tracer
+   refuses one, `check` says `E018`).
+3a. New in 0.3.0, all proven in Packet Tracer: `dhcp_pools` on a `Server-PT`, `"wireless": {"ssid": ...}` on an access
+    point and its clients, `type: "console"|"fiber"` links, a second `HWIC-2T`, HSRP / LACP EtherChannel / RSTP /
+    port security in router and switch config. Write `interface Port-channelN` *before* the member ports (`E028`).
+3b. Start from the closest template: `pktforge init x -t campus-vlan | ha-campus | wifi-campus | wan-ospf-areas |
+    two-wan-modules | model-mix | hub-spoke-43 | bank-cs5`.
     For a big topology write a small generator script (see `scripts/example_generators/`) and leave out every
     `at` to get a tidy-tree layout.
 4. `build` output is a `.pkt`. Give the user that file; no conversion step is needed.

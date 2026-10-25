@@ -895,6 +895,20 @@ class Lab:
         """
         el = self._els[dev_id]
         eng = el.find("ENGINE")
+        # pktforge fix: host NIC modules (PT-HOST-NM-*, PT-LAPTOP-NM-*) live in a single ePtHostModule /
+        # ePtLaptopModule slot that is always occupied; installing one swaps the NIC (power-off, drag, power-on in the GUI)
+        kind = ET.fromstring(self.modules[module_model]).findtext("TYPE") or "eInterfaceCard"
+        if kind != "eInterfaceCard":
+            hosts = [sl for sl in eng.iter("SLOT") if sl.findtext("TYPE") == kind]
+            if not hosts:
+                raise ValueError(f"{dev_id}: no {kind} slot for {module_model}")
+            mod = ET.fromstring(self.modules[module_model])
+            self._assign_port_macs(mod)
+            for c in list(hosts[0]):
+                hosts[0].remove(c)
+            for c in list(mod):
+                hosts[0].append(c)
+            return
         # every eInterfaceCard bay, occupied or not, in document order
         all_bays = [sl for sl in eng.iter("SLOT")
                     if sl.findtext("TYPE") == "eInterfaceCard"]
@@ -960,10 +974,19 @@ class Lab:
         ports = [p for p in el.iter("PORT") if p.findtext("TYPE") == "eSmartSerial"]
         if not ports:
             return
+        # pktforge fix: `Serial0/<bay>/<n>` -- the bay picks the module, <n> the port in it. The upstream code used
+        # only <n>, so every serial link on a second WAN module configured the first module's port instead.
+        parts = port_name.split("/")
         try:
-            idx = int(port_name.split("/")[-1])
+            idx = int(parts[-1])
+            bay = int(parts[-2]) if len(parts) >= 3 else None
         except ValueError:
-            idx = 0
+            idx, bay = 0, None
+        bays = [sl for sl in el.find("ENGINE").iter("SLOT") if sl.findtext("TYPE") == "eInterfaceCard"]
+        if bay is not None and bay < len(bays):
+            in_bay = [p for p in bays[bay].iter("PORT") if p.findtext("TYPE") == "eSmartSerial"]
+            if idx < len(in_bay):
+                ports = in_bay
         if idx >= len(ports):
             idx = 0
         p = ports[idx]

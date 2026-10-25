@@ -8,7 +8,7 @@ XML inside a .pkt, so a hand-edited or third-party file can be audited too.
 import ipaddress
 import re
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import pktforge  # noqa: F401  (puts the vendored modules on sys.path)
 import lab_api
@@ -16,7 +16,7 @@ import lab_api
 from pktforge import iosparse
 from pktforge.iosparse import Iface
 from pktforge.issues import ERROR, INFO, WARNING, Issue
-from pktforge.ports import ENDPOINT_KINDS, IOS_KINDS, canon_port, is_switch_like
+from pktforge.ports import ENDPOINT_KINDS, IOS_KINDS, canon_port, is_console_port, is_switch_like
 
 
 @dataclass
@@ -30,6 +30,7 @@ class NDev:
     gateway: str = None
     dhcp: bool = False
     has_ip_cfg: bool = True
+    dhcp_pools: list = field(default_factory=list)    # servers: [{"network", "gateway"}]
 
     @property
     def is_end(self):
@@ -98,9 +99,14 @@ def net_from_spec(spec):
             nd.gateway = d.gateway
             nd.dhcp = d.dhcp
             nd.has_ip_cfg = bool(d.ip) or d.dhcp
+            nd.dhcp_pools = [{"network": p["network"], "gateway": p["gateway"]} for p in d.dhcp_pools]
         net.devs[d.name] = nd
     for l in spec.links:
         cable = "eSerial" if l.type == "serial" else None
+        if l.type == "console" or is_console_port(l.a_port) or is_console_port(l.b_port):
+            cable = "eRollOver"
+        elif l.type == "fiber":
+            cable = "eMultiMode"
         net.links.append(NLink(l.a, l.a_port, l.b, l.b_port, cable, l.dce, "links[%d]" % l.index))
     return net
 
@@ -125,6 +131,14 @@ def net_from_xml(root):
             nd.gateway = (p.findtext("PORT_GATEWAY") if p is not None else None) or None
             nd.dhcp = p is not None and p.findtext("PORT_DHCP_ENABLE") == "true"
             nd.has_ip_cfg = bool(ip) or nd.dhcp
+            for pool in d.findall("ENGINE/DHCP_SERVERS/ASSOCIATED_PORTS/ASSOCIATED_PORT/DHCP_SERVER[ENABLED='1']/POOLS/POOL"):
+                try:
+                    pn = ipaddress.ip_network("%s/%s" % (pool.findtext("NETWORK"), pool.findtext("MASK")), strict=False)
+                except ValueError:
+                    continue
+                if pn.network_address != ipaddress.ip_address("0.0.0.0"):
+                    gw = pool.findtext("DEFAULT_ROUTER")
+                    nd.dhcp_pools.append({"network": pn, "gateway": None if gw in (None, "0.0.0.0") else gw})
         ids[eng.findtext("SAVE_REF_ID")] = name
         net.devs[name] = nd
     for L in root.findall("NETWORK/LINKS/LINK"):
@@ -176,9 +190,17 @@ def segments(net):
         return is_switch_like(d.kind, d.model)
 
     def swport(d, port):
-        return d.ifaces.get(port) or Iface(port)
+        i = d.ifaces.get(port) or Iface(port)
+        pc = d.ifaces.get("Port-channel%d" % i.channel) if i.channel else None
+        if pc is not None:             # an EtherChannel member takes its switchport settings from the bundle
+            i = replace(i, mode=i.mode or pc.mode,
+                        access_vlan=i.access_vlan if i.access_vlan != 1 else pc.access_vlan,
+                        trunk_vlans=i.trunk_vlans if i.trunk_vlans is not None else pc.trunk_vlans,
+                        native=i.native if i.native != 1 else pc.native)
+        return i
 
-    for l in net.links:
+    data_links = [l for l in net.links if l.cable != "eRollOver"]      # a console cable carries no traffic
+    for l in data_links:
         if l.a not in net.devs or l.b not in net.devs:
             continue
         A, B = net.devs[l.a], net.devs[l.b]
@@ -211,7 +233,7 @@ def segments(net):
         if sw(d):
             continue
         if d.is_end or d.kind not in IOS_KINDS:
-            ports = {l.a_port for l in net.links if l.a == d.name} | {l.b_port for l in net.links if l.b == d.name}
+            ports = {l.a_port for l in data_links if l.a == d.name} | {l.b_port for l in data_links if l.b == d.name}
             iface = d.ifaces.get("")
             for p in ports:
                 groups[find(("l3", d.name, p))].append((d, p, iface))
@@ -241,7 +263,7 @@ def check_net(net, verified_ports=None):
                                  "add it to `devices`, or fix the spelling (names are case-sensitive)"))
                 continue
             used[(end, port)] += 1
-            if verified_ports and end in verified_ports:
+            if verified_ports and end in verified_ports and not is_console_port(port):
                 valid, firm = verified_ports[end]
                 if valid and port not in valid:
                     sev = ERROR if firm else WARNING
@@ -310,7 +332,7 @@ def check_net(net, verified_ports=None):
     for dev in net.devs.values():
         if dev.is_end:
             i = dev.ifaces[""]
-            if not dev.has_ip_cfg and any(dev.name in (l.a, l.b) for l in net.links):
+            if not dev.has_ip_cfg and any(dev.name in (l.a, l.b) for l in net.links if l.cable != "eRollOver"):
                 out.append(Issue("W012", WARNING, "%s is cabled but has no IP address" % dev.name, dev.name,
                                  "set ip (and gateway), or dhcp: true"))
             if i.ip and dev.gateway:
@@ -336,6 +358,16 @@ def check_net(net, verified_ports=None):
                              "", "put both ends of a link (and everything in one VLAN) in one subnet - "
                                  "this is why pings fail even though the diagram looks right"))
         ips_here = {str(i.ip) for _d, _p, i in members if i is not None and i.ip}
+        ips_here |= {g["ip"] for _d, _p, i in members if i is not None for g in i.standby.values() if g.get("ip")}
+        groups = defaultdict(set)                   # HSRP: one group, one virtual address
+        for d2, p2, i2 in members:
+            for num, g in (i2.standby.items() if i2 is not None else ()):
+                if g.get("ip"):
+                    groups[num].add(g["ip"])
+        for num, vips in groups.items():
+            if len(vips) > 1:
+                out.append(Issue("E025", ERROR, "HSRP group %d has different virtual IPs on one LAN: %s" % (
+                    num, ", ".join(sorted(vips))), "", "every router in a group must name the same `standby %d ip`" % num))
         for dev, port, iface in members:
             if dev.is_end and dev.gateway and dev.gateway not in ips_here:
                 out.append(Issue("E015", ERROR, "%s: gateway %s is not an address of any device in its VLAN/LAN "
@@ -345,7 +377,10 @@ def check_net(net, verified_ports=None):
             if dev.is_end and dev.dhcp:
                 subnets = [i.network for _d, _p, i in members if i is not None and i.ip and not _d.is_end]
                 served = False
+                lan = {i.network for _d, _p, i in members if i is not None and i.network is not None}
                 for d2, _p, i2 in members:
+                    if d2.is_end and d2.dhcp_pools:
+                        served = served or any(pool["network"] in lan for pool in d2.dhcp_pools)
                     if d2.is_end or d2.cfg is None:
                         continue
                     if i2 is not None and i2.helpers:
@@ -357,6 +392,9 @@ def check_net(net, verified_ports=None):
                     out.append(Issue("W070", WARNING, "%s uses DHCP but nothing in its segment offers it" % dev.name,
                                      dev.name, "add an `ip dhcp pool` for this VLAN's subnet on the router "
                                                "(or `ip helper-address` on its interface)"))
+
+    out += _check_dhcp_servers(net)
+    out += _check_l2_features(net)
 
     # --- routing sanity
     for dev in net.devs.values():
@@ -392,6 +430,101 @@ def check_net(net, verified_ports=None):
             if l.cable != want:
                 out.append(Issue("W040", WARNING, "%s <-> %s uses %s; %s is expected" % (l.a, l.b, l.cable, want),
                                  l.where, "PT may leave the link down with the wrong copper cable type"))
+    return out
+
+
+def _check_dhcp_servers(net):
+    """Server pools and `ip helper-address` relays."""
+    out = []
+    owners = {}                                       # ip -> device
+    for dev in net.devs.values():
+        for i in dev.ifaces.values():
+            if i.ip:
+                owners[str(i.ip)] = dev
+    for dev in net.devs.values():
+        for pool in dev.dhcp_pools:
+            gw = pool.get("gateway")
+            try:
+                if gw and ipaddress.ip_address(gw) not in pool["network"]:
+                    out.append(Issue("E027", ERROR, "%s: DHCP pool %s hands out gateway %s, which is outside the pool" % (
+                        dev.name, pool["network"], gw), dev.name, "the pool's `gateway` must be an address in its network"))
+            except ValueError:
+                pass
+        for i in dev.ifaces.values():
+            for target in i.helpers:
+                srv = owners.get(target)
+                if srv is None:
+                    out.append(Issue("W071", WARNING, "%s %s: `ip helper-address %s` points at an address nobody in the "
+                                     "lab owns" % (dev.name, i.name, target), dev.name,
+                                     "use the DHCP server's real IP address"))
+                elif srv.is_end and i.network is not None and not any(p["network"] == i.network for p in srv.dhcp_pools):
+                    out.append(Issue("W071", WARNING, "%s %s relays DHCP to %s, which has no pool for %s" % (
+                        dev.name, i.name, srv.name, i.network), dev.name,
+                        "add {\"network\": \"%s\", ...} to %s's dhcp_pools" % (i.network, srv.name)))
+    return out
+
+
+_CHANNEL_OK = {("on", "on"), ("active", "active"), ("active", "passive"), ("passive", "active"),
+               ("desirable", "desirable"), ("desirable", "auto"), ("auto", "desirable")}
+
+
+def _check_l2_features(net):
+    """EtherChannel, port security, HSRP and spanning-tree rules that Packet Tracer enforces on replay."""
+    out = []
+    for dev in net.devs.values():
+        if dev.cfg is None:
+            continue
+        for i in dev.cfg.ifaces.values():
+            if i.port_security and (i.ps_before_mode or i.mode not in ("access", "trunk")):
+                out.append(Issue("E022", ERROR, "%s %s: `switchport port-security` needs `switchport mode access` first" % (
+                    dev.name, i.name), dev.name, "write `switchport mode access` before any port-security line, "
+                                                 "or IOS rejects it on a dynamic port"))
+            if i.channel and i.channel_mode is None:
+                out.append(Issue("E026", ERROR, "%s %s: `channel-group %d` has no `mode`" % (dev.name, i.name, i.channel),
+                                 dev.name, "use `channel-group %d mode active` (LACP) or `on`" % i.channel))
+            for num, g in i.standby.items():
+                try:
+                    if g.get("ip") and i.network is not None and ipaddress.ip_address(g["ip"]) not in i.network:
+                        out.append(Issue("E024", ERROR, "%s %s: HSRP %d virtual IP %s is outside %s" % (
+                            dev.name, i.name, num, g["ip"], i.network), dev.name,
+                            "the virtual IP must be in the interface's own subnet"))
+                except ValueError:
+                    pass
+        first = {}                                 # Port-channel stanza must precede the members' `channel-group`
+        cur = None
+        for pos, line in enumerate(dev.cfg.lines):
+            s = line.strip()
+            m = re.match(r"^interface\s+(?:port-channel|po)\s*(\d+)$", s, re.I)
+            if m:
+                first.setdefault(("po", int(m.group(1))), pos)
+            m = re.match(r"^channel-group\s+(\d+)", s, re.I)
+            if m:
+                first.setdefault(("cg", int(m.group(1))), pos)
+        for (kind, num), pos in first.items():
+            if kind == "cg" and first.get(("po", num), 10 ** 9) > pos:
+                out.append(Issue("E028", ERROR, "%s: `channel-group %d` comes before `interface Port-channel%d`" % (
+                    dev.name, num, num), dev.name,
+                    "Packet Tracer silently drops `channel-group` on load unless the Port-channel stanza is written "
+                    "first (even an otherwise empty one); put `interface Port-channel%d` above the member ports" % num))
+        for vl, prio in dev.cfg.stp_priorities:
+            if prio % 4096:
+                out.append(Issue("E023", ERROR, "%s: spanning-tree vlan %s priority %d is not a multiple of 4096" % (
+                    dev.name, vl, prio), dev.name, "use 0, 4096, 8192 ... 61440 (or `root primary`)"))
+    # both ends of a bundle must agree on the negotiation mode
+    for l in net.links:
+        a, b = net.devs.get(l.a), net.devs.get(l.b)
+        if a is None or b is None or a.cfg is None or b.cfg is None:
+            continue
+        ia, ib = a.cfg.ifaces.get(l.a_port), b.cfg.ifaces.get(l.b_port)
+        if ia is None or ib is None or not (ia.channel or ib.channel):
+            continue
+        if bool(ia.channel) != bool(ib.channel):
+            out.append(Issue("E021", ERROR, "%s %s is in a channel-group but %s %s is not" % (l.a, l.a_port, l.b, l.b_port),
+                             l.where, "put both ends of every bundled cable in a channel-group"))
+        elif (ia.channel_mode, ib.channel_mode) not in _CHANNEL_OK:
+            out.append(Issue("E021", ERROR, "EtherChannel modes %s / %s never form a bundle (%s %s <-> %s %s)" % (
+                ia.channel_mode, ib.channel_mode, l.a, l.a_port, l.b, l.b_port), l.where,
+                "use active/active, active/passive, desirable/auto, or on/on"))
     return out
 
 

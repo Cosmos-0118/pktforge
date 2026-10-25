@@ -1,0 +1,144 @@
+{
+ "name": "two-wan-modules",
+ "devices": [
+  {
+   "name": "R1",
+   "model": "2911",
+   "modules": [
+    "HWIC-2T",
+    "HWIC-2T"
+   ],
+   "config": [
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.1.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface Serial0/0/0",
+    " ip address 10.0.12.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface Serial0/1/0",
+    " ip address 10.0.13.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface Serial0/1/1",
+    " ip address 10.0.14.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R2",
+   "model": "2911",
+   "modules": [
+    "HWIC-2T"
+   ],
+   "config": [
+    "interface Serial0/0/0",
+    " ip address 10.0.12.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.2.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R3",
+   "model": "2911",
+   "modules": [
+    "HWIC-2T"
+   ],
+   "config": [
+    "interface Serial0/0/0",
+    " ip address 10.0.13.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.3.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R4",
+   "model": "2911",
+   "modules": [
+    "HWIC-2T"
+   ],
+   "config": [
+    "interface Serial0/0/1",
+    " ip address 10.0.14.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.4.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "PC1",
+   "model": "PC-PT",
+   "ip": "10.0.1.10/24",
+   "gateway": "10.0.1.1"
+  },
+  {
+   "name": "PC2",
+   "model": "PC-PT",
+   "ip": "10.0.2.10/24",
+   "gateway": "10.0.2.1"
+  },
+  {
+   "name": "PC3",
+   "model": "PC-PT",
+   "ip": "10.0.3.10/24",
+   "gateway": "10.0.3.1"
+  },
+  {
+   "name": "PC4",
+   "model": "PC-PT",
+   "ip": "10.0.4.10/24",
+   "gateway": "10.0.4.1"
+  }
+ ],
+ "links": [
+  [
+   "R1:Serial0/0/0",
+   "R2:Serial0/0/0"
+  ],
+  [
+   "R1:Serial0/1/0",
+   "R3:Serial0/0/0"
+  ],
+  [
+   "R1:Serial0/1/1",
+   "R4:Serial0/0/1"
+  ],
+  [
+   "PC1:Fa0",
+   "R1:Gi0/0"
+  ],
+  [
+   "PC2:Fa0",
+   "R2:Gi0/0"
+  ],
+  [
+   "PC3:Fa0",
+   "R3:Gi0/0"
+  ],
+  [
+   "PC4:Fa0",
+   "R4:Gi0/0"
+  ]
+ ]
+}

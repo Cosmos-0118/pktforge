@@ -29,6 +29,7 @@ def _issues_text(issues):
 
 def check_spec(sp):
     """All spec-level checks: ports against the model catalogue, then network logic."""
+    build.normalize_ports(sp)
     net = lint.net_from_spec(sp)
     cats = {}
     models = set(build.model_names())
@@ -265,7 +266,8 @@ def make_parser():
 
     s = add("init", cmd_init, "write a starter spec", json_flag=False)
     s.add_argument("name", nargs="?", default="lab")
-    s.add_argument("-t", "--template", default="minimal", help="minimal | bank-cs5 | campus-vlan | wan-ospf-areas | hub-spoke-43")
+    s.add_argument("-t", "--template", default="minimal", help="minimal | bank-cs5 | campus-vlan | ha-campus | wifi-campus | wan-ospf-areas | "
+                   "two-wan-modules | model-mix | hub-spoke-43")
     s.add_argument("--force", action="store_true")
 
     s = add("models", cmd_models, "list available device models")

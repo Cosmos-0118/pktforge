@@ -6,10 +6,10 @@ Use the **model** column as `"model"` in a spec and the **ports** column in `lin
 
 | status | models | meaning |
 |---|---|---|
-| traffic-verified | 4 | Traffic passed in Packet Tracer 9.0.1. Safe default. |
-| ports-verified | 32 | Opens in Packet Tracer 9.0.1 and keeps its cables under the names listed. No traffic test yet. |
+| traffic-verified | 17 | Traffic passed in Packet Tracer 9.0.1. Safe default. |
+| ports-verified | 28 | Opens in Packet Tracer 9.0.1 and keeps its cables under the names listed. No traffic test yet. |
 | untested | 93 | A template exists but was never opened in Packet Tracer by pktforge. Check the result by hand. |
-| rejected | 8 | Packet Tracer 9.0.1 refuses to open a file containing it. pktforge will not build it; add it by hand. |
+| rejected | 0 | Packet Tracer 9.0.1 refuses to open a file containing it. pktforge will not build it; add it by hand. |
 
 ## Routers
 
@@ -17,25 +17,25 @@ Packet Tracer palette: Network Devices > Routers
 
 | model | status | ports | modules PT's help allows | notes |
 |---|---|---|---|---|
-| `1841` | ports-verified | FastEthernet0/0-1, Serial0/0/0-1 | HWIC-2T, HWIC-8A, HWIC-AP-AG-B, WIC-1ENET, WIC-2T |  |
-| `1941` | ports-verified | GigabitEthernet0/0-1 | HWIC-2T, HWIC-8A |  |
+| `1841` | traffic-verified | FastEthernet0/0-1, Serial0/0/0-1 | HWIC-2T, HWIC-8A, HWIC-AP-AG-B, WIC-1ENET, WIC-2T |  |
+| `1941` | traffic-verified | GigabitEthernet0/0-1 | HWIC-2T, HWIC-8A |  |
 | `2620XM` | ports-verified | FastEthernet0/0 | NM-2E2W, NM-4A/S, WIC-2T |  |
 | `2621XM` | ports-verified | FastEthernet0/0-1 | - |  |
-| `2811` | ports-verified | FastEthernet0/0-1 | HWIC-2T, HWIC-8A, HWIC-AP-AG-B, NM-2E2W, NM-4A/S, WIC-1ENET, WIC-2T |  |
-| `2901` | ports-verified | GigabitEthernet0/0-1 | HWIC-2T, HWIC-8A |  |
+| `2811` | traffic-verified | FastEthernet0/0-1 | HWIC-2T, HWIC-8A, HWIC-AP-AG-B, NM-2E2W, NM-4A/S, WIC-1ENET, WIC-2T |  |
+| `2901` | traffic-verified | GigabitEthernet0/0-1 | HWIC-2T, HWIC-8A |  |
 | `2911` | traffic-verified | GigabitEthernet0/0-2 | HWIC-2T, HWIC-8A |  |
 | `819HG-4G-IOX` | ports-verified | GigabitEthernet0, FastEthernet0-3, Serial0, Ethernet1 | - |  |
 | `819HGW` | ports-verified | GigabitEthernet0, FastEthernet0-3, Serial0 | - |  |
 | `829` | ports-verified | GigabitEthernet0-5 | GLC-T |  |
 | `CGR1240` | ports-verified | GigabitEthernet0/1, FastEthernet2/3-6, GigabitEthernet2/1-2 | GLC-FE-100FX-RGD, ROUTER-ADAPTER |  |
 | `Cloud-PT` | untested | Ethernet0 | - |  |
-| `DSL-Modem-PT` | rejected | FastEthernet0 | - | Packet Tracer 9.0.1 reports the file as incompatible |
-| `HomeRouter-PT-AC` | rejected | GigabitEthernet0-4 | - | Packet Tracer 9.0.1 reports the file as incompatible |
+| `DSL-Modem-PT` | ports-verified | Port 0-1 | - |  |
+| `HomeRouter-PT-AC` | ports-verified | Internet, GigabitEthernet 1-4 | - |  |
 | `IR1101` | ports-verified | GigabitEthernet0/0/0, FastEthernet0/0/1-4 | GLC-FE-100FX-RGD, GLC-LX-SM-RGD, P-5GS6-GL, P-LTEA18-GL |  |
 | `IR8340` | ports-verified | GigabitEthernet0/0/0-1, GigabitEthernet0/1/0-11 | GLC-LX-SM-RGD, P-5GS6-GL, P-LTEA18-GL, PWR-RGD-AC-DC |  |
-| `ISR4321` | ports-verified | GigabitEthernet0/0/0-1 | NIM-2T |  |
-| `ISR4331` | ports-verified | GigabitEthernet0/0/0-2 | GLC-T, GLC-TE, NIM-2T |  |
-| `Linksys-WRT300N` | rejected | FastEthernet0-4 | - | Packet Tracer 9.0.1 reports the file as incompatible |
+| `ISR4321` | traffic-verified | GigabitEthernet0/0/0-1 | NIM-2T |  |
+| `ISR4331` | traffic-verified | GigabitEthernet0/0/0-2 | GLC-T, GLC-TE, NIM-2T |  |
+| `Linksys-WRT300N` | ports-verified | Internet, Ethernet 1-4 | - |  |
 | `Router-PT` | ports-verified | FastEthernet0/0, FastEthernet1/0, Serial2/0, Serial3/0, FastEthernet4/0, FastEthernet5/0 | PT-ROUTER-NM-1CFE, PT-ROUTER-NM-1FFE, PT-ROUTER-NM-1S | fibre (no copper cable): FastEthernet4/0, FastEthernet5/0 |
 
 ## Switches
@@ -44,15 +44,15 @@ Packet Tracer palette: Network Devices > Switches
 
 | model | status | ports | modules PT's help allows | notes |
 |---|---|---|---|---|
-| `2950-24` | ports-verified | FastEthernet0/1-24 | - |  |
-| `2950T-24` | ports-verified | FastEthernet0/1-24, GigabitEthernet0/1-2 | - |  |
+| `2950-24` | traffic-verified | FastEthernet0/1-24 | - |  |
+| `2950T-24` | traffic-verified | FastEthernet0/1-24, GigabitEthernet0/1-2 | - |  |
 | `2960-24TT` | traffic-verified | FastEthernet0/1-24, GigabitEthernet0/1-2 | - |  |
 | `Hub-PT` | ports-verified | FastEthernet0-5 | - |  |
 | `IE-2000` | ports-verified | FastEthernet1/1-8, GigabitEthernet1/1-2 | - |  |
 | `IE-3400` | ports-verified | GigabitEthernet1/1-10 | GLC-LX-SM-RGD, GLC-SX-MM-RGD | fibre (no copper cable): GigabitEthernet1/1 |
 | `IE-9320` | ports-verified | GigabitEthernet1/0/1-28 | 9320-AC-POWER-SUPPLY, GLC-LX-SM-RGD, GLC-TE |  |
 | `IE-9320-26S2C` | ports-verified | GigabitEthernet1/0/1-28 | - |  |
-| `Switch-PT` | ports-verified | FastEthernet0/1, FastEthernet1/1, FastEthernet2/1, FastEthernet3/1, FastEthernet4/1, FastEthernet5/1 | PT-SWITCH-NM-1CFE, PT-SWITCH-NM-1FFE | fibre (no copper cable): FastEthernet4/1, FastEthernet5/1 |
+| `Switch-PT` | traffic-verified | FastEthernet0/1, FastEthernet1/1, FastEthernet2/1, FastEthernet3/1, FastEthernet4/1, FastEthernet5/1 | PT-SWITCH-NM-1CFE, PT-SWITCH-NM-1FFE | fibre (no copper cable): FastEthernet4/1, FastEthernet5/1 |
 
 ## Multilayer switches
 
@@ -60,8 +60,8 @@ Packet Tracer palette: Network Devices > Switches
 
 | model | status | ports | modules PT's help allows | notes |
 |---|---|---|---|---|
-| `3560-24PS` | ports-verified | FastEthernet0/1-24, GigabitEthernet0/1-2 | - |  |
-| `3650-24PS` | ports-verified | GigabitEthernet1/0/1-24, GigabitEthernet1/1/1-4 | GLC-T |  |
+| `3560-24PS` | traffic-verified | FastEthernet0/1-24, GigabitEthernet0/1-2 | - |  |
+| `3650-24PS` | traffic-verified | GigabitEthernet1/0/1-24, GigabitEthernet1/1/1-4 | GLC-T |  |
 
 ## Firewalls
 
@@ -70,7 +70,7 @@ Packet Tracer palette: Network Devices > Security
 | model | status | ports | modules PT's help allows | notes |
 |---|---|---|---|---|
 | `5505` | ports-verified | Ethernet0/0-7 | - |  |
-| `Meraki-MX65W` | rejected | GigabitEthernet0-9 | - | Packet Tracer 9.0.1 reports the file as incompatible |
+| `Meraki-MX65W` | ports-verified | Internet 1-2, GigabitEthernet 3-10, Ethernet 11-12 | - |  |
 
 ## PCs and phones
 
@@ -88,7 +88,7 @@ Packet Tracer palette: End Devices
 
 | model | status | ports | modules PT's help allows | notes |
 |---|---|---|---|---|
-| `Laptop-PT` | ports-verified | FastEthernet0 | - |  |
+| `Laptop-PT` | traffic-verified | FastEthernet0 | - |  |
 
 ## Servers
 
@@ -96,7 +96,7 @@ Packet Tracer palette: End Devices
 
 | model | status | ports | modules PT's help allows | notes |
 |---|---|---|---|---|
-| `Central-Office-Server` | rejected | FastEthernet0 | - | Packet Tracer 9.0.1 reports the file as incompatible |
+| `Central-Office-Server` | ports-verified | Backbone | - |  |
 | `DataHistorianServer` | ports-verified | GigabitEthernet0-1 | - |  |
 | `Meraki-Server` | ports-verified | FastEthernet0 | - |  |
 | `Server-PT` | traffic-verified | FastEthernet0 | - |  |
@@ -116,9 +116,10 @@ Packet Tracer palette: Network Devices > Wireless Devices
 
 | model | status | ports | modules PT's help allows | notes |
 |---|---|---|---|---|
-| `AccessPoint-PT` | rejected | FastEthernet0 | - | Packet Tracer 9.0.1 reports the file as incompatible |
-| `AccessPoint-PT-A` | rejected | FastEthernet0 | - | Packet Tracer 9.0.1 reports the file as incompatible |
-| `AccessPoint-PT-N` | rejected | FastEthernet0 | - | Packet Tracer 9.0.1 reports the file as incompatible |
+| `AccessPoint-PT` | traffic-verified | Port 0 | - |  |
+| `AccessPoint-PT-A` | ports-verified | Port 0 | - |  |
+| `AccessPoint-PT-AC` | ports-verified | Port 0 | - |  |
+| `AccessPoint-PT-N` | ports-verified | Port 0 | - |  |
 | `LAP-PT` | ports-verified | GigabitEthernet0 | - |  |
 
 ## Packet Tracer palette map
@@ -130,11 +131,11 @@ What the on-screen palette calls each device, and the pktforge `model` for it (`
 | palette label | pktforge model | status |
 |---|---|---|
 | PT8200 | - | no template |
-| 4331 | `ISR4331` | ports-verified |
-| 4321 | `ISR4321` | ports-verified |
+| 4331 | `ISR4331` | traffic-verified |
+| 4321 | `ISR4321` | traffic-verified |
 | IR8340 | `IR8340` | ports-verified |
-| 1941 | `1941` | ports-verified |
-| 2901 | `2901` | ports-verified |
+| 1941 | `1941` | traffic-verified |
+| 2901 | `2901` | traffic-verified |
 | 2911 | `2911` | traffic-verified |
 | 819IOX | `819HG-4G-IOX` | ports-verified |
 | 819HGW | `819HGW` | ports-verified |
@@ -143,25 +144,25 @@ What the on-screen palette calls each device, and the pktforge `model` for it (`
 | IR1101 | `IR1101` | ports-verified |
 | PT-Router | `Router-PT` | ports-verified |
 | PT-Empty | - | no template |
-| 1841 | `1841` | ports-verified |
+| 1841 | `1841` | traffic-verified |
 | 2620XM | `2620XM` | ports-verified |
 | 2621XM | `2621XM` | ports-verified |
-| 2811 | `2811` | ports-verified |
+| 2811 | `2811` | traffic-verified |
 
 **Network Devices > Switches**
 
 | palette label | pktforge model | status |
 |---|---|---|
 | 2960 | `2960-24TT` | traffic-verified |
-| PT-Switch | `Switch-PT` | ports-verified |
+| PT-Switch | `Switch-PT` | traffic-verified |
 | PT-Empty | - | no template |
-| 3560 24PS | `3560-24PS` | ports-verified |
-| 3650 24PS | `3650-24PS` | ports-verified |
+| 3560 24PS | `3560-24PS` | traffic-verified |
+| 3650 24PS | `3650-24PS` | traffic-verified |
 | IE 2000 | `IE-2000` | ports-verified |
 | IE-3400 | `IE-3400` | ports-verified |
 | IE-9320 | `IE-9320` | ports-verified |
-| 2950-24 | `2950-24` | ports-verified |
-| 2950T | `2950T-24` | ports-verified |
+| 2950-24 | `2950-24` | traffic-verified |
+| 2950T | `2950T-24` | traffic-verified |
 
 **Network Devices > Hubs**
 
@@ -181,8 +182,8 @@ What the on-screen palette calls each device, and the pktforge `model` for it (`
 | WLC | - | no template |
 | 3504 | - | no template |
 | 2504 | - | no template |
-| Home Router | `HomeRouter-PT-AC` | rejected |
-| AP-PT | `AccessPoint-PT` | rejected |
+| Home Router | `HomeRouter-PT-AC` | ports-verified |
+| AP-PT | `AccessPoint-PT` | traffic-verified |
 
 **Network Devices > Security**
 
@@ -199,7 +200,7 @@ What the on-screen palette calls each device, and the pktforge `model` for it (`
 |---|---|---|
 | PT-Cloud | `Cloud-PT` | untested |
 | PT-Empty | - | no template |
-| DSL Modem | `DSL-Modem-PT` | rejected |
+| DSL Modem | `DSL-Modem-PT` | ports-verified |
 | Cable Modem | - | no template |
 
 **End Devices > End Devices**
@@ -207,7 +208,7 @@ What the on-screen palette calls each device, and the pktforge `model` for it (`
 | palette label | pktforge model | status |
 |---|---|---|
 | PC | `PC-PT` | traffic-verified |
-| Laptop | `Laptop-PT` | ports-verified |
+| Laptop | `Laptop-PT` | traffic-verified |
 | Server | `Server-PT` | traffic-verified |
 | Meraki Server | `Meraki-Server` | ports-verified |
 | Network Controller | - | no template |
@@ -230,7 +231,7 @@ _The Wireless Devices, Switches and the four other End Devices sections (Home, I
 
 ## In Packet Tracer's palette but with no pktforge template
 
-`819`, `AccessPoint-PT-AC`, `Cable-Modem-PT`, `CoAxialSplitter-PT`, `IE2000`, `Printer-PT`, `Repeater-PT`, `TV-PT`, `WMP300N`, `WPC300N`, `WRT300N`, `WiredDevice-PT`, `WirelessEndDevice-PT`.
+`819`, `Cable-Modem-PT`, `CoAxialSplitter-PT`, `IE2000`, `Printer-PT`, `Repeater-PT`, `TV-PT`, `WMP300N`, `WPC300N`, `WRT300N`, `WiredDevice-PT`, `WirelessEndDevice-PT`.
 
 Add these by hand in Packet Tracer after opening the generated file.
 

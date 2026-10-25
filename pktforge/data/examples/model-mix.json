@@ -1,0 +1,199 @@
+{
+ "name": "model-mix",
+ "devices": [
+  {
+   "name": "R1941",
+   "model": "1941",
+   "config": [
+    "interface GigabitEthernet0/0",
+    " ip address 10.1.1.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.0.12.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R2901",
+   "model": "2901",
+   "config": [
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.12.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.0.23.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R4331",
+   "model": "ISR4331",
+   "config": [
+    "interface GigabitEthernet0/0/0",
+    " ip address 10.0.23.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/0/1",
+    " ip address 10.0.34.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/0/2",
+    " ip address 10.0.35.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R4321",
+   "model": "ISR4321",
+   "config": [
+    "interface GigabitEthernet0/0/0",
+    " ip address 10.0.34.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/0/1",
+    " ip address 10.4.1.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R2811",
+   "model": "2811",
+   "config": [
+    "interface FastEthernet0/0",
+    " ip address 10.0.35.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface FastEthernet0/1",
+    " ip address 10.0.56.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "R1841",
+   "model": "1841",
+   "config": [
+    "interface FastEthernet0/0",
+    " ip address 10.0.56.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface FastEthernet0/1",
+    " ip address 10.6.1.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " network 10.0.0.0 0.255.255.255 area 0"
+   ]
+  },
+  {
+   "name": "SW2950",
+   "model": "2950-24"
+  },
+  {
+   "name": "SW3650",
+   "model": "3650-24PS"
+  },
+  {
+   "name": "SW3560",
+   "model": "3560-24PS"
+  },
+  {
+   "name": "SW2950T",
+   "model": "2950T-24"
+  },
+  {
+   "name": "PC-A",
+   "model": "PC-PT",
+   "ip": "10.1.1.10/24",
+   "gateway": "10.1.1.1"
+  },
+  {
+   "name": "PC-D",
+   "model": "PC-PT",
+   "ip": "10.4.1.10/24",
+   "gateway": "10.4.1.1"
+  },
+  {
+   "name": "PC-B",
+   "model": "PC-PT",
+   "ip": "10.6.1.10/24",
+   "gateway": "10.6.1.1"
+  },
+  {
+   "name": "PC-C",
+   "model": "PC-PT",
+   "ip": "10.6.1.11/24",
+   "gateway": "10.6.1.1"
+  }
+ ],
+ "links": [
+  [
+   "R1941:Gi0/0",
+   "SW2950:Fa0/1"
+  ],
+  [
+   "SW2950:Fa0/2",
+   "PC-A:Fa0"
+  ],
+  [
+   "R1941:Gi0/1",
+   "R2901:Gi0/0"
+  ],
+  [
+   "R2901:Gi0/1",
+   "R4331:Gi0/0/0"
+  ],
+  [
+   "R4331:Gi0/0/1",
+   "R4321:Gi0/0/0"
+  ],
+  [
+   "R4331:Gi0/0/2",
+   "R2811:Fa0/0"
+  ],
+  [
+   "R4321:Gi0/0/1",
+   "SW3650:Gi1/0/1"
+  ],
+  [
+   "SW3650:Gi1/0/2",
+   "PC-D:Fa0"
+  ],
+  [
+   "R2811:Fa0/1",
+   "R1841:Fa0/0"
+  ],
+  [
+   "R1841:Fa0/1",
+   "SW3560:Fa0/1"
+  ],
+  [
+   "SW3560:Fa0/2",
+   "PC-B:Fa0"
+  ],
+  [
+   "SW3560:Fa0/24",
+   "SW2950T:Fa0/24"
+  ],
+  [
+   "SW2950T:Fa0/1",
+   "PC-C:Fa0"
+  ]
+ ]
+}

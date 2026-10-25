@@ -27,6 +27,8 @@ class Dev:
     dns: str = None
     dhcp: bool = False
     services: dict = field(default_factory=dict)
+    dhcp_pools: list = field(default_factory=list)   # servers: [{name, network, mask, gateway, dns, start, max_users, tftp}]
+    wireless: dict = field(default_factory=dict)     # {"ssid": "LAB"}: APs/routers broadcast it, clients join it
     power: bool = True
     stripped: list = field(default_factory=list)
 
@@ -121,6 +123,36 @@ def _parse_ip(dev, d, where):
                               "use \"10.0.0.5/24\" or ip + mask"))
 
 
+def _parse_pools(raw, where):
+    """Server DHCP pools: {"network": "10.0.10.0/24", "gateway", "dns", "start", "max_users", "name", "tftp"}."""
+    pools = []
+    for n, p in enumerate(raw or []):
+        try:
+            if not isinstance(p, dict) or not p.get("network"):
+                raise ValueError("needs a `network`, e.g. \"10.0.10.0/24\"")
+            if "/" in str(p["network"]):
+                net = ipaddress.ip_network(p["network"], strict=False)
+            elif p.get("mask"):
+                net = ipaddress.ip_network("%s/%s" % (p["network"], p["mask"]), strict=False)
+            else:
+                raise ValueError("network %r needs a /prefix or a `mask`" % p["network"])
+            if net.version != 4 or net.prefixlen > 30:
+                raise ValueError("pool network must be an IPv4 network of /30 or larger")
+            hosts = list(net.hosts())
+            start = ipaddress.ip_address(p["start"]) if p.get("start") else hosts[0]
+            for key in ("gateway", "dns", "tftp"):
+                if p.get(key):
+                    ipaddress.ip_address(p[key])
+            max_users = int(p.get("max_users", max(1, len(hosts) - (hosts.index(start) if start in hosts else 0))))
+            pools.append({"name": str(p.get("name") or ("serverPool" if n == 0 else "pool%d" % n)),
+                          "network": net, "start": start, "max_users": max_users,
+                          "gateway": p.get("gateway"), "dns": p.get("dns"), "tftp": p.get("tftp")})
+        except (ValueError, TypeError) as exc:
+            raise SpecError(Issue("S050", ERROR, "dhcp_pools[%d]: %s" % (n, exc), where,
+                                  "e.g. {\"network\": \"10.0.10.0/24\", \"gateway\": \"10.0.10.1\", \"dns\": \"10.0.99.2\"}"))
+    return pools
+
+
 def parse(data, base_dir="."):
     """Turn a decoded spec dict into a Spec, raising SpecError on malformed input."""
     if not isinstance(data, dict):
@@ -165,6 +197,19 @@ def parse(data, base_dir="."):
         dev.dns = d.get("dns")
         dev.dhcp = bool(d.get("dhcp", False))
         dev.services = dict(d.get("services") or {})
+        w = d.get("wireless")
+        if w is not None:
+            if isinstance(w, str):
+                w = {"ssid": w}
+            if not isinstance(w, dict) or not str(w.get("ssid", "")).strip():
+                problems.append(Issue("S060", ERROR, "`wireless` needs an ssid, e.g. {\"ssid\": \"LAB\"}", where,
+                                      "open (no password) networks only; WPA is not supported yet"))
+            else:
+                dev.wireless = {"ssid": str(w["ssid"])}
+        try:
+            dev.dhcp_pools = _parse_pools(d.get("dhcp_pools"), where)
+        except SpecError as exc:
+            problems.extend(exc.issues)
         dev.power = bool(d.get("power", True))
         if dev.stripped:
             problems.append(Issue("S030", INFO, "removed prompt-only lines from config: %s"
@@ -190,9 +235,9 @@ def parse(data, base_dir="."):
             problems.extend(exc.issues)
             continue
         ltype = str(extra.get("type", "auto")).lower()
-        if ltype not in ("auto", "straight", "cross", "serial"):
+        if ltype not in ("auto", "straight", "cross", "serial", "console", "fiber"):
             problems.append(Issue("S012", ERROR, "link type %r unknown" % ltype, where,
-                                  "use auto, straight, cross or serial"))
+                                  "use auto, straight, cross, serial, console or fiber"))
             continue
         links.append(Link(ad, ap, bd, bp, ltype, extra.get("dce"), int(extra.get("clock", 64000)), i))
 
@@ -237,6 +282,17 @@ SCHEMA = {
             "dns": {"type": "string"},
             "dhcp": {"type": "boolean"},
             "services": {"type": "object", "description": "servers: {\"http\": true}"},
+            "wireless": {"description": "{\"ssid\": \"LAB\"}: an access point / wireless router broadcasts it, a laptop, "
+                         "PC or phone joins it (a wireless NIC is fitted automatically; open networks only, and the "
+                         "client must sit within the AP's coverage - auto-layout takes care of that)",
+                         "anyOf": [{"type": "string"}, {"type": "object", "properties": {"ssid": {"type": "string"}}}]},
+            "dhcp_pools": {"type": "array", "description": "Server-PT: DHCP pools the server hands out (turns the DHCP "
+                           "service on). Routers need `ip helper-address <server ip>` to reach it from other subnets",
+                           "items": {"type": "object", "required": ["network"], "properties": {
+                               "network": {"type": "string", "description": "\"10.0.10.0/24\""},
+                               "gateway": {"type": "string"}, "dns": {"type": "string"}, "tftp": {"type": "string"},
+                               "start": {"type": "string", "description": "first address handed out (default: first host)"},
+                               "max_users": {"type": "integer"}, "name": {"type": "string"}}}},
             "power": {"type": "boolean", "default": True},
         }}},
         "links": {"type": "array", "items": {"anyOf": [
@@ -244,7 +300,8 @@ SCHEMA = {
              "description": "[\"R1:Gi0/0\", \"SW1:Gi0/1\"]; cable type is chosen automatically"},
             {"type": "object", "required": ["a", "b"], "properties": {
                 "a": {"type": "string"}, "b": {"type": "string"},
-                "type": {"enum": ["auto", "straight", "cross", "serial"]},
+                "type": {"enum": ["auto", "straight", "cross", "serial", "console", "fiber"],
+                         "description": "auto picks serial/console/fibre/straight/crossover from the ports and models"},
                 "dce": {"type": "string", "description": "serial only: device that provides the clock (default: a)"},
                 "clock": {"type": "integer", "default": 64000}}}]}},
         "labels": {"anyOf": [{"enum": ["auto", False]},

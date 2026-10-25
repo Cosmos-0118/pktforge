@@ -25,6 +25,12 @@ TRAFFIC_VERIFIED = set(_C["traffic_verified"])
 REJECTED = dict(_C["rejected"])
 PORT_RENAMES = {m: dict(r) for m, r in _C["port_renames"].items()}
 FIBER_PORTS = {m: list(p) for m, p in _C["fiber_ports"].items()}
+PORT_NAMES = {m: list(p) for m, p in _C.get("port_names", {}).items()}     # models whose names come from the cable menu
+
+
+def squash(name):
+    """Port spelling without spaces/case: 'GigabitEthernet 3', 'Gi3' and 'gigabitethernet3' all compare equal."""
+    return re.sub(r"\s+", "", canon_port(name)).lower()
 
 _PREFIXES = (
     (re.compile(r"^(fa|fast\w*)$", re.I), "FastEthernet"),
@@ -34,11 +40,27 @@ _PREFIXES = (
     (re.compile(r"^(lo|loop\w*)$", re.I), "Loopback"),
 )
 
+# management ports a console (roll-over) cable plugs into; they are not data ports and have no `interface` block
+_MGMT_ALIASES = {"console": "Console", "con": "Console", "aux": "Auxiliary", "auxiliary": "Auxiliary",
+                 "rs232": "RS 232"}
+CONSOLE_PORTS = frozenset(_MGMT_ALIASES.values())
+
+
+def is_console_port(name):
+    return name in CONSOLE_PORTS or canon_port(name) in CONSOLE_PORTS
+
+
 _PORT_RE = re.compile(r"^([A-Za-z]+)\s*(\d[\d/]*(?:\.\d+)?)$")     # optional .N = dot1Q subinterface
 
 
 def canon_port(name):
     """'Gi0/0' -> 'GigabitEthernet0/0'. Unknown prefixes are returned unchanged."""
+    pc = re.match(r"^(?:po|port-?channel)\s*(\d+)$", name.strip(), re.I)
+    if pc:
+        return "Port-channel" + pc.group(1)
+    squashed = re.sub(r"[\s_-]+", "", name).lower()
+    if squashed in _MGMT_ALIASES:
+        return _MGMT_ALIASES[squashed]
     m = _PORT_RE.match(name.strip())
     if not m:
         return name.strip()

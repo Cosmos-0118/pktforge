@@ -10,11 +10,13 @@ hand; they are written down in [`pktforge/data/LESSONS.md`](pktforge/data/LESSON
 * Zero dependencies. Python 3.10+ only. Works on Windows, macOS and Linux.
 * Built for people **and AI agents**: every command has `--json`, stable exit codes, and findings that say how to
   fix them. See [`AGENTS.md`](AGENTS.md).
-* Verified end to end in Packet Tracer 9.0.1, on four labs that were each built from one spec and then opened and
+* Verified end to end in Packet Tracer 9.0.1, on eight labs that were each built from one spec and then opened and
   pinged: a bank WAN (OSPF, NAT, serial), a VLAN campus (trunks, router-on-a-stick, DHCP, ACL), a 7-router
-  multi-area OSPF network (MD5, PAT, serial) and a 44-device hub-and-spoke with no positions given.
-* Knows what Packet Tracer will and won't load: a device catalogue built by opening 44 device models in Packet
-  Tracer ([`DEVICES.md`](DEVICES.md)): 36 cable-verified, 8 that Packet Tracer refuses outright.
+  multi-area OSPF network (MD5, PAT, serial), a 44-device hub-and-spoke with no positions given, a high-availability
+  campus (HSRP, LACP EtherChannel, RSTP, port security, DHCP server with relay), a wireless campus (AP, DHCP and
+  static laptops), a router with two WAN cards, and a 14-device network of 10 different router and switch models.
+* Knows what Packet Tracer will and won't load: a device catalogue built by opening device models in Packet
+  Tracer ([`DEVICES.md`](DEVICES.md)): 17 models have carried traffic, about 30 more keep their cables.
 
 ## Install
 
@@ -44,7 +46,7 @@ pktforge check lab.json         # lint: "No problems found."
 pktforge build lab.json -o out  # out/lab.pkt  <- open this in Packet Tracer
 ```
 
-Bigger starting points: `pktforge init x -t bank-cs5 | campus-vlan | wan-ospf-areas | hub-spoke-43`.
+Bigger starting points: `pktforge init x -t bank-cs5 | campus-vlan | ha-campus | wifi-campus | wan-ospf-areas | two-wan-modules | model-mix | hub-spoke-43`.
 Not sure which model or port name to use? `pktforge catalog`, or read [`DEVICES.md`](DEVICES.md).
 
 A spec is just this:
@@ -69,8 +71,10 @@ stale addresses) is handled for you. Full reference: `pktforge guide`.
 Overlapping subnets on one router (the silent killer), a host whose gateway is not on its LAN or VLAN, two ends of
 a link in different subnets, duplicate IPs, ports that do not exist, are fibre, or are used twice, models Packet
 Tracer refuses to open, sub-interface and NAT-pool ordering mistakes, DHCP clients with no DHCP server, undefined
-ACLs, static routes whose next hop is unreachable, OSPF wildcard slips, wrong cable types, and VLANs the switch
-database never received. `pktforge check` also audits any existing
+ACLs, static routes whose next hop is unreachable, OSPF wildcard slips, wrong cable types, VLANs the switch
+database never received, EtherChannel modes that never bundle (and `channel-group` lines Packet Tracer silently
+drops), HSRP groups with two virtual IPs, port security in the wrong order, DHCP relays pointing nowhere, and wireless
+clients on an SSID nobody broadcasts or outside the AP's range. `pktforge check` also audits any existing
 `.pkt`/`.xml`, including ones you did not make.
 
 ## Commands
@@ -80,11 +84,17 @@ database never received. `pktforge check` also audits any existing
 
 ## Honest limits
 
-Traffic has been passed through the 2911 router, 2960-24TT switch, PC-PT and Server-PT. 32 more models were
-opened in Packet Tracer and kept their cables but never carried traffic; 93 templates were never opened; 8 are
-refused by Packet Tracer 9.0.1 (including every access point). One WAN module per router; no fibre cables, console
-cables, wireless, server DHCP pools or `.pka` activities. pktforge proves a file is consistent, not that traffic flows: open it in
-Packet Tracer and read `show ip interface brief`. Details in `pktforge guide`.
+Traffic has been passed through 17 models (routers 2911, 1941, 2901, 2811, 1841, ISR4321, ISR4331; switches
+2960-24TT, 2950-24, 2950T-24, 3560-24PS, 3650-24PS, Switch-PT; PC-PT, Laptop-PT, Server-PT, AccessPoint-PT). About 30
+more models were opened and kept their cables but never carried traffic, and the rest are templates nobody has
+opened (`pktforge catalog` says which). Config that was proven to replay: VLANs, trunks, router-on-a-stick, router
+and server DHCP, ACLs, OSPF, PAT, serial on two WAN cards, HSRP, LACP EtherChannel, RSTP, port security. Console and
+multimode-fibre cables and open-SSID wireless work too.
+
+Not supported: WPA/WEP wireless and wireless controllers, single-mode fibre, coaxial/phone/USB cables, `.pka`
+activities, and PAgP, sticky-MAC, BPDU guard and IPv6 are linted but were never run in Packet Tracer.
+pktforge proves a file is consistent, not that traffic flows: open it in Packet Tracer and read
+`show ip interface brief`. Details in `pktforge guide`.
 
 ## Development
 

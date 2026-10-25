@@ -52,6 +52,8 @@ def model_ports(model, modules=()):
     (PCs, servers, hubs) fall back to the port types, numbered from 0.
     """
     models, _ = _templates()
+    if model in ports.PORT_NAMES:                  # read off Packet Tracer's cable menu (names may contain spaces)
+        return list(ports.PORT_NAMES[model])
     el = ET.fromstring(models[model].decode("utf-8", "replace"))
     renames = ports.PORT_RENAMES.get(model, {})
     names = []
@@ -78,6 +80,28 @@ def model_ports(model, modules=()):
 
 def port_catalog(model, modules=()):
     return set(model_ports(model, modules))
+
+
+def normalize_ports(spec):
+    """Rewrite link ports to the exact spelling Packet Tracer uses ('Gi3' -> 'GigabitEthernet 3' on a Meraki).
+
+    Idempotent. A port that matches nothing is left alone for the linter to report.
+    """
+    by_name = {d.name: d for d in spec.devices}
+    cache = {}
+    for l in spec.links:
+        for end, attr in ((l.a, "a_port"), (l.b, "b_port")):
+            dev = by_name.get(end)
+            port = getattr(l, attr)
+            if dev is None or ports.is_console_port(port) or dev.model not in _templates()[0]:
+                continue
+            key = (dev.model, tuple(dev.modules))
+            if key not in cache:
+                cache[key] = {ports.squash(n): n for n in model_ports(dev.model, dev.modules)}
+            exact = cache[key].get(ports.squash(port))
+            if exact:
+                setattr(l, attr, exact)
+    return spec
 
 
 def _seed_path():
@@ -229,13 +253,40 @@ def device_checks(spec):
                 out.append(Issue("W002", WARNING, "module %s is not listed as compatible with %s in Packet Tracer's "
                                  "help (it lists: %s)" % (m, d.model, ", ".join(sorted(known))), where,
                                  "Packet Tracer may refuse to power the device"))
+    broadcast = {d.wireless["ssid"] for d in spec.devices
+                 if d.wireless and d.model in models and _wireless_role(d.model) == "server"}
+    for d in spec.devices:
+        if not d.wireless or d.model not in models:
+            continue
+        role, where = _wireless_role(d.model), "device " + d.name
+        if role is None:
+            out.append(Issue("E032", ERROR, "%s (%s) has no wireless radio, so `wireless` does nothing" % (d.name, d.model),
+                             where, "use an access point or wireless router (`pktforge catalog --kind access-point`) "
+                                    "to broadcast, or a laptop/phone/tablet to join"))
+        elif role == "client":
+            if not _has_wireless_nic(d.model, d.modules) and not _wireless_nic_for(d.model):
+                out.append(Issue("W093", WARNING, "%s (%s) has no wireless NIC and none can be fitted" % (d.name, d.model),
+                                 where, "use Laptop-PT, SMARTPHONE-PT or TabletPC-PT"))
+            if d.wireless["ssid"] not in broadcast:
+                out.append(Issue("W090", WARNING, "%s joins SSID %r but no access point or wireless router in the lab "
+                                 "broadcasts it" % (d.name, d.wireless["ssid"]), where,
+                                 "give an access point the same `wireless` ssid (names are case-sensitive)"))
     for l in spec.links:
-        for end, port in ((l.a, l.a_port), (l.b, l.b_port)):
-            dev = by_name.get(end)
-            if dev and port in ports.FIBER_PORTS.get(dev.model, ()):
+        ends = ((l.a, l.a_port), (l.b, l.b_port))
+        fibre =[bool(by_name.get(e)) and p in ports.FIBER_PORTS.get(by_name[e].model, ()) for e, p in ends]
+        as_fibre = l.type == "fiber" or (l.type == "auto" and all(fibre))
+        for (end, port), is_fibre in zip(ends, fibre):
+            if l.type == "console" or ports.is_console_port(port):
+                continue
+            if as_fibre and not is_fibre:
+                out.append(Issue("E029", ERROR, "%s %s is a copper port; Packet Tracer refuses a fibre cable there" % (
+                    end, port), "links[%d]" % l.index,
+                    "use a fibre port (`pktforge ports %s`) or a copper cable" % by_name[end].model))
+            elif is_fibre and not as_fibre:
                 out.append(Issue("E009", ERROR, "%s %s is a fibre port; Packet Tracer drops copper cables there" % (
                     end, port), "links[%d]" % l.index,
-                    "use one of the copper ports (`pktforge ports %s`)" % dev.model))
+                    "cable a fibre port to a fibre port (`\"type\": \"fiber\"`), or use one of the copper ports "
+                    "(`pktforge ports %s`)" % by_name[end].model))
     return out
 
 
@@ -284,6 +335,7 @@ def build_lab(spec):
     issues = []
     models, modules = _templates()
     problems = []
+    normalize_ports(spec)
     for d in spec.devices:
         if d.model not in models:
             near = [m for m in models if d.model.lower() in m.lower()][:5]
@@ -299,20 +351,39 @@ def build_lab(spec):
     lab = lab_api.Lab(_seed_path(), models, modules, annotate_links=False)
     lab.prune_seed_devices()
     pos = _auto_positions(spec)
-    ids, kinds = {}, {}
+    _place_wireless(spec, pos)
+    ids, kinds, roles = {}, {}, {}
     for d in spec.devices:
         kind = lab_api.kind_for_model(d.model)
         kinds[d.name] = kind
         x, y = pos[d.name]
         pc_ip = (d.ip, d.mask, d.gateway or "") if d.ip else None
+        mods = list(d.modules)
+        if d.wireless:
+            roles[d.name] = _wireless_role(d.model)
+            if roles[d.name] == "client" and not _has_wireless_nic(d.model, mods) and _wireless_nic_for(d.model):
+                mods.append(_wireless_nic_for(d.model))
+                issues.append(Issue("S061", INFO, "fitted wireless NIC %s to %s (it ships with a wired card)" % (
+                    mods[-1], d.name), "device " + d.name))
         sid = lab.add_device(d.model, d.name, x, y, power=d.power, pc_ip=pc_ip,
-                             install=d.modules[0] if d.modules else None)
-        for extra in d.modules[1:]:
+                             install=mods[0] if mods else None)
+        for extra in mods[1:]:
             lab.install_module(sid, extra)
         ids[d.name] = sid
         el = lab._els[sid]
         if kind in ports.ENDPOINT_KINDS or kind not in ports.IOS_KINDS:
             _prepare_endpoint(el, d)
+        if d.wireless and roles[d.name]:
+            _set_ssid(el, roles[d.name], d.wireless["ssid"], d)
+    for d in spec.devices:                                    # a client outside every matching AP's circle never joins
+        if d.wireless and roles.get(d.name) == "client":
+            near = [(pos[d.name][0] - pos[s.name][0]) ** 2 + (pos[d.name][1] - pos[s.name][1]) ** 2 <= _coverage(s.model) ** 2
+                    for s in spec.devices if s.wireless and roles.get(s.name) == "server"
+                    and s.wireless["ssid"] == d.wireless["ssid"]]
+            if near and not any(near):
+                issues.append(Issue("W092", WARNING, "%s is outside the coverage of every access point broadcasting "
+                                    "%r, so it will not associate" % (d.name, d.wireless["ssid"]), "device " + d.name,
+                                    "move it within ~140 units of the AP (or drop its `at` for automatic placement)"))
 
     # ---- cables
     for l in spec.links:
@@ -330,6 +401,10 @@ def build_lab(spec):
         if ltype == "auto":
             if l.a_port.startswith("Serial") and l.b_port.startswith("Serial"):
                 ltype = "serial"
+            elif ports.is_console_port(l.a_port) or ports.is_console_port(l.b_port):
+                ltype = "console"
+            elif l.a_port in ports.FIBER_PORTS.get(ma, ()) and l.b_port in ports.FIBER_PORTS.get(mb, ()):
+                ltype = "fiber"
             else:
                 ltype = "straight" if ports.cable_type(ka, ma, kb, mb) == "eStraightThrough" else "cross"
         if ltype == "serial":
@@ -339,8 +414,11 @@ def build_lab(spec):
             lab.link(ids[l.a], l.a_port, ids[l.b], l.b_port, kind="serial", dce=ids[dce], clock=l.clock)
         else:
             lab.link(ids[l.a], l.a_port, ids[l.b], l.b_port)
+            link = lab.net.find("LINKS").findall("LINK")[-1]
             if ltype == "cross":
-                lab.net.find("LINKS").findall("LINK")[-1].find("CABLE/TYPE").text = "eCrossOver"
+                link.find("CABLE/TYPE").text = "eCrossOver"
+            elif ltype in ("console", "fiber"):
+                _retype_link(link, ltype)
 
     # ---- IOS configs (written after links: lab.link() appends to RUNNINGCONFIG)
     for d in spec.devices:
@@ -376,11 +454,23 @@ def build_lab(spec):
 
     _add_labels(lab, spec, pos)
     manual = [
-        "Console cables are not drawn (PC templates have no RS-232 port). Open a device's CLI tab instead.",
         "Open the file in Packet Tracer and run `show ip interface brief` on each router before trusting it; "
         "pktforge has verified the file structure, not the running simulation.",
     ]
     return lab, issues, manual
+
+
+def _retype_link(link, ltype):
+    """Console and fibre cables, in the exact shape Packet Tracer 9.0.1 itself saves them (data/LESSONS L16)."""
+    cable = link.find("CABLE")
+    if ltype == "console":                    # a roll-over cable is still an <eCopper> link
+        cable.find("TYPE").text = "eRollOver"
+        cable.find("GEO_VIEW_COLOR").text = "#1e59a5"
+    else:
+        link.find("TYPE").text = "eFiber"
+        cable.find("TYPE").text = "eMultiMode"
+        cable.find("GEO_VIEW_COLOR").text = "#ff0000"
+        ET.SubElement(cable, "OVERWITE_MISMATCH_FIBER").text = "false"      # sic: Packet Tracer's own spelling
 
 
 def ltype_is_serial(l):
@@ -394,6 +484,12 @@ def _prepare_endpoint(el, d):
         g.text = d.gateway or None
     port = el.find(".//PORT")
     if port is not None:
+        if d.ip:                                           # a NIC swap (wireless card) replaces the port: set again
+            for tag, val in (("IP", d.ip), ("SUBNET", d.mask), ("PORT_GATEWAY", d.gateway)):
+                e = port.find(tag)
+                if e is None:
+                    e = ET.SubElement(port, tag)
+                e.text = val or None
         if not d.ip:
             for tag in ("IP", "SUBNET", "PORT_GATEWAY"):
                 e = port.find(tag)
@@ -410,11 +506,102 @@ def _prepare_endpoint(el, d):
         for ap in list(aps.findall("ASSOCIATED_PORT")):
             if any(p.findtext("NETWORK") != "0.0.0.0" for p in ap.findall("DHCP_SERVER/POOLS/POOL")):
                 aps.remove(ap)
+        if d.dhcp_pools:
+            _put_dhcp_pools(aps, d.dhcp_pools)
     for svc, on in d.services.items():
         tag = _SERVICE_TAGS.get(str(svc).lower())
         node = eng.find("%s/ENABLED" % tag) if tag else None
         if node is not None:
             node.text = "1" if on else "0"
+
+
+_WIRELESS_NICS = {"ePtLaptopModule": "PT-LAPTOP-NM-1W", "ePtHostModule": "PT-HOST-NM-1W"}
+_CLIENT_SPOTS = ((0, 95), (-85, 70), (85, 70), (-120, 0), (120, 0), (-40, 120), (40, 120), (-110, -50), (110, -50),
+                 (0, -95))       # all inside a 140-unit access-point coverage circle
+
+
+def _wireless_role(model):
+    """'server' (access point, wireless router), 'client' (laptop, phone, PC) or None, from the template."""
+    el = ET.fromstring(_templates()[0][model].decode("utf-8", "replace"))
+    if el.find("ENGINE/WIRELESS_SERVER") is not None:
+        return "server"
+    return "client" if el.find("ENGINE/WIRELESS_CLIENT") is not None else None
+
+
+def _has_wireless_nic(model, modules):
+    models, mods = _templates()
+    texts = [models[model].decode("utf-8", "replace")] + [mods[m] for m in modules if m in mods]
+    return any("Wireless" in (p.findtext("TYPE") or "")
+               for t in texts for p in ET.fromstring(t).iter("PORT"))
+
+
+def _wireless_nic_for(model):
+    el = ET.fromstring(_templates()[0][model].decode("utf-8", "replace"))
+    for sl in el.iter("SLOT"):
+        if sl.findtext("TYPE") in _WIRELESS_NICS:
+            return _WIRELESS_NICS[sl.findtext("TYPE")]
+    return None
+
+
+def _coverage(model):
+    el = ET.fromstring(_templates()[0][model].decode("utf-8", "replace"))
+    vals = [int(p.findtext("COVERAGERANGE") or 0) for p in el.iter("PORT") if "Wireless" in (p.findtext("TYPE") or "")]
+    return max(vals or [0])
+
+
+def _set_ssid(el, role, ssid, dev):
+    eng = el.find("ENGINE")
+    if role == "server":
+        eng.find("WIRELESS_SERVER/WIRELESS_COMMON/SSID").text = ssid
+        return
+    eng.find("WIRELESS_CLIENT/WIRELESS_COMMON/SSID").text = ssid
+    for prof in eng.findall("WIRELESS_CLIENT/PROFILES/WIRELESS_PROFILE") + \
+            eng.findall("WIRELESS_CLIENT/CURRENT_PROFILE/WIRELESS_PROFILE"):
+        prof.find("NAME").text = ssid
+        prof.find("SSID").text = ssid
+        if dev.ip:                                         # static addressing lives in the profile too
+            for tag, val in (("DHCP_ENABLED", "0"), ("IP_ADDRESS", dev.ip), ("SUBNET_MASK", dev.mask),
+                             ("DEFAULT_GATEWAY", dev.gateway or "")):
+                prof.find(tag).text = val or None
+
+
+def _place_wireless(spec, pos):
+    """Put each wireless client inside the coverage of the first access point that broadcasts its SSID."""
+    servers = {}
+    for d in spec.devices:
+        if d.wireless and d.model in _templates()[0] and _wireless_role(d.model) == "server":
+            servers.setdefault(d.wireless["ssid"], d.name)
+    used = {}
+    for d in spec.devices:
+        if not d.wireless or d.at or d.name in servers.values() or d.wireless["ssid"] not in servers:
+            continue
+        ap = servers[d.wireless["ssid"]]
+        k = used.get(ap, 0)
+        used[ap] = k + 1
+        dx, dy = _CLIENT_SPOTS[k % len(_CLIENT_SPOTS)]
+        pos[d.name] = (pos[ap][0] + dx, pos[ap][1] + dy)
+
+
+def _put_dhcp_pools(aps, pools):
+    """Turn the server's DHCP service on with these pools (replaces the template's empty `serverPool`)."""
+    ap = aps.find("ASSOCIATED_PORT")
+    if ap is None:
+        return
+    server = ap.find("DHCP_SERVER")
+    server.find("ENABLED").text = "1"
+    el = server.find("POOLS")
+    for p in list(el):
+        el.remove(p)
+    for p in pools:
+        net = p["network"]
+        end = min(p["start"] + p["max_users"], net.broadcast_address)   # PT stores end = start + max users
+        pool = ET.SubElement(el, "POOL")
+        for tag, val in (("NAME", p["name"]), ("NETWORK", net.network_address), ("MASK", net.netmask),
+                         ("DEFAULT_ROUTER", p["gateway"] or "0.0.0.0"), ("TFTP_ADDRESS", p["tftp"] or "0.0.0.0"),
+                         ("START_IP", p["start"]), ("END_IP", end), ("DNS_SERVER", p["dns"] or "0.0.0.0"),
+                         ("MAX_USERS", p["max_users"])):
+            ET.SubElement(pool, tag).text = str(val)
+        ET.SubElement(pool, "DHCP_POOL_LEASES")
 
 
 def _add_labels(lab, spec, pos):

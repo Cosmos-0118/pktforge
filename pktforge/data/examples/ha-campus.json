@@ -1,0 +1,261 @@
+{
+  "name": "ha-campus",
+  "devices": [
+    {
+      "name": "R1",
+      "model": "2911",
+      "config": [
+        "hostname R1",
+        "spanning-tree mode rapid-pvst",
+        "interface GigabitEthernet0/0",
+        " no ip address",
+        " no shutdown",
+        " exit",
+        "interface GigabitEthernet0/0.10",
+        " encapsulation dot1Q 10",
+        " ip address 10.0.10.2 255.255.255.0",
+        " ip helper-address 10.0.20.10",
+        " standby 10 ip 10.0.10.1",
+        " standby 10 priority 110",
+        " standby 10 preempt",
+        " exit",
+        "interface GigabitEthernet0/0.20",
+        " encapsulation dot1Q 20",
+        " ip address 10.0.20.2 255.255.255.0",
+        " standby 20 ip 10.0.20.1",
+        " standby 20 priority 110",
+        " standby 20 preempt",
+        " exit",
+        "interface GigabitEthernet0/1",
+        " ip address 10.0.1.1 255.255.255.252",
+        " no shutdown",
+        " exit",
+        "router ospf 1",
+        " network 10.0.0.0 0.255.255.255 area 0"
+      ]
+    },
+    {
+      "name": "R2",
+      "model": "2911",
+      "config": [
+        "hostname R2",
+        "interface GigabitEthernet0/0",
+        " no ip address",
+        " no shutdown",
+        " exit",
+        "interface GigabitEthernet0/0.10",
+        " encapsulation dot1Q 10",
+        " ip address 10.0.10.3 255.255.255.0",
+        " ip helper-address 10.0.20.10",
+        " standby 10 ip 10.0.10.1",
+        " standby 10 preempt",
+        " exit",
+        "interface GigabitEthernet0/0.20",
+        " encapsulation dot1Q 20",
+        " ip address 10.0.20.3 255.255.255.0",
+        " standby 20 ip 10.0.20.1",
+        " standby 20 preempt",
+        " exit",
+        "interface GigabitEthernet0/1",
+        " ip address 10.0.2.1 255.255.255.252",
+        " no shutdown",
+        " exit",
+        "router ospf 1",
+        " network 10.0.0.0 0.255.255.255 area 0"
+      ]
+    },
+    {
+      "name": "R3",
+      "model": "2911",
+      "config": [
+        "hostname R3",
+        "interface GigabitEthernet0/0",
+        " ip address 10.0.1.2 255.255.255.252",
+        " no shutdown",
+        " exit",
+        "interface GigabitEthernet0/1",
+        " ip address 10.0.2.2 255.255.255.252",
+        " no shutdown",
+        " exit",
+        "interface GigabitEthernet0/2",
+        " ip address 192.168.100.1 255.255.255.0",
+        " no shutdown",
+        " exit",
+        "router ospf 1",
+        " network 10.0.0.0 0.255.255.255 area 0",
+        " network 192.168.100.0 0.0.0.255 area 0"
+      ]
+    },
+    {
+      "name": "SW1",
+      "model": "2960-24TT",
+      "config": [
+        "hostname SW1",
+        "spanning-tree mode rapid-pvst",
+        "spanning-tree vlan 10,20 priority 4096",
+        "vlan 10",
+        " name USERS",
+        " exit",
+        "vlan 20",
+        " name SERVERS",
+        " exit",
+        "interface Port-channel1",
+        " switchport mode trunk",
+        " exit",
+        "interface range FastEthernet0/23 - 24",
+        " switchport mode trunk",
+        " duplex full",
+        " speed 100",
+        " channel-group 1 mode active",
+        " exit",
+        "interface GigabitEthernet0/1",
+        " switchport mode trunk",
+        " exit",
+        "interface FastEthernet0/1",
+        " switchport mode trunk",
+        " exit"
+      ]
+    },
+    {
+      "name": "SW2",
+      "model": "2960-24TT",
+      "config": [
+        "hostname SW2",
+        "spanning-tree mode rapid-pvst",
+        "spanning-tree vlan 10,20 priority 8192",
+        "vlan 10",
+        " name USERS",
+        " exit",
+        "vlan 20",
+        " name SERVERS",
+        " exit",
+        "interface Port-channel1",
+        " switchport mode trunk",
+        " exit",
+        "interface range FastEthernet0/23 - 24",
+        " switchport mode trunk",
+        " duplex full",
+        " speed 100",
+        " channel-group 1 mode active",
+        " exit",
+        "interface GigabitEthernet0/1",
+        " switchport mode trunk",
+        " exit",
+        "interface FastEthernet0/1",
+        " switchport mode trunk",
+        " exit"
+      ]
+    },
+    {
+      "name": "SW3",
+      "model": "2960-24TT",
+      "config": [
+        "hostname SW3",
+        "spanning-tree mode rapid-pvst",
+        "vlan 10",
+        " name USERS",
+        " exit",
+        "vlan 20",
+        " name SERVERS",
+        " exit",
+        "interface range FastEthernet0/1 - 2",
+        " switchport mode trunk",
+        " exit",
+        "interface range FastEthernet0/3 - 4",
+        " switchport mode access",
+        " switchport access vlan 10",
+        " switchport port-security",
+        " switchport port-security maximum 2",
+        " switchport port-security violation restrict",
+        " spanning-tree portfast",
+        " exit",
+        "interface FastEthernet0/5",
+        " switchport mode access",
+        " switchport access vlan 20",
+        " spanning-tree portfast",
+        " exit"
+      ]
+    },
+    {
+      "name": "DHCP-SRV",
+      "model": "Server-PT",
+      "ip": "10.0.20.10/24",
+      "gateway": "10.0.20.1",
+      "dhcp_pools": [
+        {
+          "network": "10.0.10.0/24",
+          "gateway": "10.0.10.1",
+          "dns": "10.0.20.10",
+          "start": "10.0.10.100",
+          "max_users": 50
+        }
+      ]
+    },
+    {
+      "name": "PC-A",
+      "model": "PC-PT",
+      "dhcp": true
+    },
+    {
+      "name": "PC-B",
+      "model": "PC-PT",
+      "dhcp": true
+    },
+    {
+      "name": "PC-EXT",
+      "model": "PC-PT",
+      "ip": "192.168.100.10/24",
+      "gateway": "192.168.100.1"
+    }
+  ],
+  "links": [
+    [
+      "R1:Gi0/0",
+      "SW1:Gi0/1"
+    ],
+    [
+      "R2:Gi0/0",
+      "SW2:Gi0/1"
+    ],
+    [
+      "SW1:Fa0/23",
+      "SW2:Fa0/23"
+    ],
+    [
+      "SW1:Fa0/24",
+      "SW2:Fa0/24"
+    ],
+    [
+      "SW1:Fa0/1",
+      "SW3:Fa0/1"
+    ],
+    [
+      "SW2:Fa0/1",
+      "SW3:Fa0/2"
+    ],
+    [
+      "SW3:Fa0/3",
+      "PC-A:Fa0"
+    ],
+    [
+      "SW3:Fa0/4",
+      "PC-B:Fa0"
+    ],
+    [
+      "SW3:Fa0/5",
+      "DHCP-SRV:Fa0"
+    ],
+    [
+      "R1:Gi0/1",
+      "R3:Gi0/0"
+    ],
+    [
+      "R2:Gi0/1",
+      "R3:Gi0/1"
+    ],
+    [
+      "R3:Gi0/2",
+      "PC-EXT:Fa0"
+    ]
+  ]
+}

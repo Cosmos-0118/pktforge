@@ -40,8 +40,9 @@ config of every IOS device (startup == running, as after `copy run start`).
 **L6. Serial links need a DCE end with a clock.** One end must have `clock rate 64000` in config *and*
 `CLOCKRATE` on the port; both ends need `POWER=true` and `CLOCKRATEFLAG=true`. Without it the line stays down.
 pktforge sets all of it and adds the config line if you forgot (`S031`). Serial cables draw as red zig-zags;
-that is normal. Serial interface names are `Serial0/0/0`, `0/0/1` for a first HWIC-2T. Only one WAN module per
-router is verified.
+that is normal. Serial interface names are `Serial0/0/0`, `0/0/1` for a first HWIC-2T and `Serial0/1/0`, `0/1/1`
+for a second one (verified: PC4 -> PC3 through serial links on both cards, TTL 125). The vendored `lab_api` used
+only the last number of the port name, so every link on the second card clocked the first card's port; fixed.
 
 **L7. Cable types matter.** Host-to-switch is straight-through. Router-router, router-PC/server and
 switch-switch are crossover (`eCrossOver`). pktforge picks automatically; a wrong choice is `W040`.
@@ -63,9 +64,14 @@ perfect (`show ip interface brief` all up). *Symptom:* `show vlan brief` lists o
 every declared VLAN, and every VLAN an access port names, into the database. (`X009`)
 
 **L11. One unloadable template makes Packet Tracer refuse the whole file**, with only "not compatible with this
-version of Cisco Packet Tracer" and no device name. Eight templates do this in 9.0.1: DSL-Modem-PT, HomeRouter-PT-AC,
-Linksys-WRT300N, Meraki-MX65W, Central-Office-Server and all three AccessPoint-PT variants. pktforge refuses to
-build them (`E018`); add those devices by hand. *To find a culprit, bisect*: build one file per model.
+version of Cisco Packet Tracer" and no device name. Eight templates did this in 9.0.1 (every access point,
+DSL-Modem-PT, HomeRouter-PT-AC, Linksys-WRT300N, Meraki-MX65W, Central-Office-Server). They were harvested from an
+older Packet Tracer; **a template saved by your own version loads by definition**. Fix: drag the device into an
+empty lab, save, and run `python scripts/harvest_templates.py SAVE.pkt MODEL...`; that is how pktforge 0.3.0
+replaced all eight (the one-of-each lab then opened, and an 11-cable lab kept every cable under the same names).
+`E018` still exists for any model a future version refuses. *To find a culprit, bisect*: build one file per model.
+Port names of those models come from the cable menu, not from a config (`port_names` in `census.json`) and several
+contain spaces: `GigabitEthernet 3`, `Port 0`, `Internet 1`, `RS 232`. pktforge matches ignoring spaces and case.
 
 **L12. Fibre ports cannot take a copper cable.** Packet Tracer silently drops the cable when it loads the file
 (Router-PT Fa4/0 and Fa5/0, Switch-PT Fa4/1 and Fa5/1, IE-3400 Gi1/1). pktforge raises `E009`.
@@ -82,10 +88,53 @@ Likewise `ip nat pool` before the `ip nat inside source ... pool` that uses it (
 
 **L15. Packet Tracer adds a `Power Distribution Device0` to every lab it saves.** Harmless; do not "fix" it.
 
+**L16. Console and fibre cables have their own XML.** Copied from files Packet Tracer 9.0.1 saved. Console:
+`<LINK><TYPE>eCopper</TYPE>` with `<CABLE><TYPE>eRollOver</TYPE>`, ports `RS 232` (PC) and `Console` (router/switch).
+Fibre: `<LINK><TYPE>eFiber</TYPE>` with `<CABLE><TYPE>eMultiMode</TYPE>`, colour `#ff0000` and an
+`OVERWITE_MISMATCH_FIBER` flag (sic). Switch-PT's `Fa4/1`/`Fa5/1` only take multimode: a single-mode cable is refused
+with "The cable cannot be connected to that port". Both survived a reload and the fibre carried pings. A console
+cable moves no traffic, so lint ignores it when building VLAN/subnet segments.
+
+**L17. `channel-group` is silently dropped on load unless `interface Port-channelN` comes first.** A bundle written the
+usual way (member ports, then the Port-channel stanza) came up with *no members* (`show etherchannel summary` showed
+`Po1(SD)` and an empty port list), although typing the same lines at the prompt worked. Write the Port-channel stanza
+above the members (`E028`). The same spec the other way round formed `Po1(SU)  LACP  Fa0/23(P) Fa0/24(P)`.
+
+**L18. Give bundle members `duplex full` and `speed 100`.** Without them Packet Tracer auto-negotiated Fa0/23 to full and
+Fa0/24 to half duplex and suspended both ports: "%EC-5-CANNOT_BUNDLE2 ... duplex mismatch".
+
+**L19. HSRP, RSTP and port security replay fine; mind the order.** Verified: `standby N ip/priority/preempt` on
+sub-interfaces (R1 Active for both groups, R2 Standby, virtual IP is the hosts' gateway); `spanning-tree mode
+rapid-pvst` with `spanning-tree vlan 10,20 priority 4096`; `switchport mode access` *before* `switchport port-security`
+(`E022`), then `maximum 2` and `violation restrict` (shown by `show port-security`). A host's gateway may be a virtual
+IP no interface owns, so lint accepts HSRP addresses (`E015`) and does not call them duplicates (`E011`).
+
+**L20. A Server-PT hands out DHCP when its pool is written into `DHCP_SERVERS`.** `dhcp_pools` fills it. A PC in
+another VLAN gets its lease through `ip helper-address <server>` on the router sub-interface: PC-A received
+`10.0.10.112/24` with the HSRP virtual IP as gateway and reached the far side (TTL 126). `E027` pool gateway outside the
+pool, `W071` helper pointing at nothing or at a server without a pool for that subnet.
+
+**L21. Wireless lives in `ENGINE/WIRELESS_SERVER` (APs, routers) and `ENGINE/WIRELESS_CLIENT` (laptops, phones).**
+The SSID is not a port attribute. A laptop ships with a wired card; swapping in `PT-LAPTOP-NM-1W` (or `PT-HOST-NM-1W`
+for a PC) makes it wireless, and pktforge does that for any device with a `wireless` setting. It associates only
+inside the AP's coverage (140 units for `AccessPoint-PT`, 250 for home routers), so pktforge places clients 70-120
+units from their AP. Verified: laptop got `10.9.1.10` from a router pool over the AP and pinged a wired server
+(TTL 127). Open networks only: the WPA/WEP enum values were not captured.
+
 ## Rules the linter enforces (each one is a way to get "looks right, doesn't work")
 
 | code | meaning |
 |---|---|
+| E021 | the two ends of an EtherChannel use modes that never bundle (`on` vs `active`, `passive`/`passive`...) |
+| E022 | `switchport port-security` before `switchport mode access` (IOS rejects it on a dynamic port; the wrong order itself was not tried in Packet Tracer) |
+| E023 | `spanning-tree vlan N priority X` where X is not a multiple of 4096 |
+| E024 / E025 | HSRP virtual IP outside the interface's subnet / two virtual IPs for one group on one LAN |
+| E026 / E028 | `channel-group` without `mode` / written before its `interface Port-channelN` stanza (dropped on load) |
+| E027 | server DHCP pool hands out a gateway outside its own network |
+| E029 | fibre cable on a copper port (Packet Tracer refuses it) |
+| E032 | `wireless` on a device with no radio |
+| W071 | `ip helper-address` points at an address nobody owns, or a server with no pool for that subnet |
+| W090 / W092 / W093 | client joins an SSID nobody broadcasts / client placed outside every matching AP's coverage / no wireless NIC can be fitted |
 | E009 | copper cable on a fibre port (dropped on load) |
 | E014 / E015 | now VLAN-aware: a segment is one VLAN, sub-interfaces join the VLAN they tag |
 | E016 / E017 | `ip address` before `encapsulation`; NAT pool used before it is defined |
@@ -120,7 +169,6 @@ Likewise `ip nat pool` before the `ip nat inside source ... pool` that uses it (
 
 ## What a file cannot hold
 
-* Console cables (PC templates have no RS-232 port): use the device's CLI tab.
 * Anything depending on the simulator's state (ARP caches, DHCP leases, a typed-in password prompt).
 * Models whose port names are inferred: open the result and look before relying on it.
 

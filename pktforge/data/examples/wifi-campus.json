@@ -1,0 +1,73 @@
+{
+ "name": "wifi-campus",
+ "devices": [
+  {
+   "name": "R1",
+   "model": "2911",
+   "config": [
+    "interface GigabitEthernet0/0",
+    " ip address 10.9.1.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.9.2.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "ip dhcp excluded-address 10.9.1.1 10.9.1.9",
+    "ip dhcp pool WIFI",
+    " network 10.9.1.0 255.255.255.0",
+    " default-router 10.9.1.1",
+    " dns-server 10.9.2.10",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW1",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "AP1",
+   "model": "AccessPoint-PT",
+   "wireless": {
+    "ssid": "CAMPUS"
+   }
+  },
+  {
+   "name": "LAP1",
+   "model": "Laptop-PT",
+   "wireless": {
+    "ssid": "CAMPUS"
+   },
+   "dhcp": true
+  },
+  {
+   "name": "LAP2",
+   "model": "Laptop-PT",
+   "wireless": {
+    "ssid": "CAMPUS"
+   },
+   "ip": "10.9.1.50/24",
+   "gateway": "10.9.1.1"
+  },
+  {
+   "name": "SRV",
+   "model": "Server-PT",
+   "ip": "10.9.2.10/24",
+   "gateway": "10.9.2.1"
+  }
+ ],
+ "links": [
+  [
+   "SW1:Fa0/1",
+   "R1:Gi0/0"
+  ],
+  [
+   "AP1:Port 0",
+   "SW1:Fa0/2"
+  ],
+  [
+   "SRV:Fa0",
+   "R1:Gi0/1"
+  ]
+ ]
+}
