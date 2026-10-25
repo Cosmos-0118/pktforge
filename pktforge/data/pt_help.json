@@ -1,0 +1,300 @@
+{
+ "devices": {
+  "1841": {
+   "group": "router",
+   "modules": [
+    "HWIC-2T",
+    "HWIC-8A",
+    "HWIC-AP-AG-B",
+    "WIC-1ENET",
+    "WIC-2T"
+   ]
+  },
+  "1941": {
+   "group": "router",
+   "modules": [
+    "HWIC-2T",
+    "HWIC-8A"
+   ]
+  },
+  "2620XM": {
+   "group": "router",
+   "modules": [
+    "NM-2E2W",
+    "NM-4A/S",
+    "WIC-2T"
+   ]
+  },
+  "2621XM": {
+   "group": "router",
+   "modules": []
+  },
+  "2811": {
+   "group": "router",
+   "modules": [
+    "HWIC-2T",
+    "HWIC-8A",
+    "HWIC-AP-AG-B",
+    "NM-2E2W",
+    "NM-4A/S",
+    "WIC-1ENET",
+    "WIC-2T"
+   ]
+  },
+  "2901": {
+   "group": "router",
+   "modules": [
+    "HWIC-2T",
+    "HWIC-8A"
+   ]
+  },
+  "2911": {
+   "group": "router",
+   "modules": [
+    "HWIC-2T",
+    "HWIC-8A"
+   ]
+  },
+  "2950-24": {
+   "group": "switch",
+   "modules": []
+  },
+  "2950T-24": {
+   "group": "switch",
+   "modules": []
+  },
+  "2960-24TT": {
+   "group": "switch",
+   "modules": []
+  },
+  "3560-24PS": {
+   "group": "switch",
+   "modules": []
+  },
+  "3650-24PS": {
+   "group": "switch",
+   "modules": [
+    "GLC-T"
+   ]
+  },
+  "7960": {
+   "group": "end",
+   "modules": [
+    "IP_PHONE_POWER_ADAPTER"
+   ]
+  },
+  "819": {
+   "group": "router",
+   "modules": []
+  },
+  "829": {
+   "group": "router",
+   "modules": [
+    "GLC-T"
+   ]
+  },
+  "AccessPoint-PT": {
+   "group": "other",
+   "modules": []
+  },
+  "AccessPoint-PT-A": {
+   "group": "other",
+   "modules": []
+  },
+  "AccessPoint-PT-AC": {
+   "group": "other",
+   "modules": []
+  },
+  "AccessPoint-PT-N": {
+   "group": "other",
+   "modules": []
+  },
+  "Analog-Phone-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "CGR1240": {
+   "group": "router",
+   "modules": [
+    "GLC-FE-100FX-RGD",
+    "ROUTER-ADAPTER"
+   ]
+  },
+  "Cable-Modem-PT": {
+   "group": "other",
+   "modules": []
+  },
+  "CoAxialSplitter-PT": {
+   "group": "other",
+   "modules": []
+  },
+  "CyberObserver": {
+   "group": "end",
+   "modules": []
+  },
+  "DSL-Modem-PT": {
+   "group": "other",
+   "modules": []
+  },
+  "DataHistorianServer": {
+   "group": "end",
+   "modules": []
+  },
+  "Home-VoIP-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "Hub-PT": {
+   "group": "other",
+   "modules": []
+  },
+  "IE-3400": {
+   "group": "switch",
+   "modules": [
+    "GLC-LX-SM-RGD",
+    "GLC-SX-MM-RGD"
+   ]
+  },
+  "IE-9320": {
+   "group": "switch",
+   "modules": [
+    "9320-AC-POWER-SUPPLY",
+    "GLC-LX-SM-RGD",
+    "GLC-TE"
+   ]
+  },
+  "IE2000": {
+   "group": "switch",
+   "modules": []
+  },
+  "IR1101": {
+   "group": "router",
+   "modules": [
+    "GLC-FE-100FX-RGD",
+    "GLC-LX-SM-RGD",
+    "P-5GS6-GL",
+    "P-LTEA18-GL"
+   ]
+  },
+  "IR8340": {
+   "group": "router",
+   "modules": [
+    "GLC-LX-SM-RGD",
+    "P-5GS6-GL",
+    "P-LTEA18-GL",
+    "PWR-RGD-AC-DC"
+   ]
+  },
+  "ISA-3000": {
+   "group": "other",
+   "modules": []
+  },
+  "ISR4321": {
+   "group": "router",
+   "modules": [
+    "NIM-2T"
+   ]
+  },
+  "ISR4331": {
+   "group": "router",
+   "modules": [
+    "GLC-T",
+    "GLC-TE",
+    "NIM-2T"
+   ]
+  },
+  "Laptop-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "Meraki-Server": {
+   "group": "end",
+   "modules": []
+  },
+  "PC-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "PT8200": {
+   "group": "router",
+   "modules": [
+    "GLC-T",
+    "GLC-TE",
+    "NIM-2T"
+   ]
+  },
+  "Printer-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "Repeater-PT": {
+   "group": "other",
+   "modules": []
+  },
+  "Router-PT": {
+   "group": "router",
+   "modules": [
+    "PT-ROUTER-NM-1CFE",
+    "PT-ROUTER-NM-1FFE",
+    "PT-ROUTER-NM-1S"
+   ]
+  },
+  "SMARTPHONE-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "Server-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "Sniffer": {
+   "group": "end",
+   "modules": []
+  },
+  "Switch-PT": {
+   "group": "switch",
+   "modules": [
+    "PT-SWITCH-NM-1CFE",
+    "PT-SWITCH-NM-1FFE"
+   ]
+  },
+  "TV-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "TabletPC-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "WMP300N": {
+   "group": "end",
+   "modules": [
+    "PT-HOST-NM-1CE",
+    "PT-HOST-NM-1CFE",
+    "PT-HOST-NM-1CGE",
+    "PT-HOST-NM-1W",
+    "PT-HOST-NM-1W-A"
+   ]
+  },
+  "WPC300N": {
+   "group": "end",
+   "modules": [
+    "PT-LAPTOP-NM-1CFE",
+    "PT-LAPTOP-NM-1W"
+   ]
+  },
+  "WRT300N": {
+   "group": "other",
+   "modules": []
+  },
+  "WiredDevice-PT": {
+   "group": "end",
+   "modules": []
+  },
+  "WirelessEndDevice-PT": {
+   "group": "end",
+   "modules": []
+  }
+ },
+ "packet_tracer": "Cisco Packet Tracer 9.0.1"
+}

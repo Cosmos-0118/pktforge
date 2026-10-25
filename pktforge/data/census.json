@@ -1,0 +1,37 @@
+{
+  "packet_tracer": "9.0.1.0858",
+  "tested": "2026-10-25",
+  "how": "Each model was placed in a generated lab with the first and last Ethernet port of every family cabled to a 2960 collector switch (scripts/census.py). The lab was opened in Packet Tracer 9.0.1 and re-saved; a model is 'ports_verified' when Packet Tracer opened the file and kept those cables under the same port names.",
+  "traffic_verified": ["2911", "2960-24TT", "PC-PT", "Server-PT"],
+  "ports_verified": [
+    "1841", "1941", "2620XM", "2621XM", "2811", "2901", "2911", "ISR4321", "ISR4331",
+    "819HG-4G-IOX", "819HGW", "829", "CGR1240", "IR1101", "IR8340", "Router-PT",
+    "2950-24", "2950T-24", "2960-24TT", "3560-24PS", "3650-24PS", "Switch-PT", "Hub-PT",
+    "IE-2000", "IE-3400", "IE-9320", "IE-9320-26S2C",
+    "5505", "PC-PT", "Server-PT", "Laptop-PT", "LAP-PT", "DataHistorianServer", "Meraki-Server",
+    "Sniffer", "CyberObserver"
+  ],
+  "rejected": {
+    "DSL-Modem-PT": "Packet Tracer 9.0.1 reports the file as incompatible",
+    "HomeRouter-PT-AC": "Packet Tracer 9.0.1 reports the file as incompatible",
+    "Linksys-WRT300N": "Packet Tracer 9.0.1 reports the file as incompatible",
+    "Meraki-MX65W": "Packet Tracer 9.0.1 reports the file as incompatible",
+    "Central-Office-Server": "Packet Tracer 9.0.1 reports the file as incompatible",
+    "AccessPoint-PT": "Packet Tracer 9.0.1 reports the file as incompatible",
+    "AccessPoint-PT-A": "Packet Tracer 9.0.1 reports the file as incompatible",
+    "AccessPoint-PT-N": "Packet Tracer 9.0.1 reports the file as incompatible"
+  },
+  "port_renames": {
+    "2950T-24": {"GigabitEthernet1/1": "GigabitEthernet0/1", "GigabitEthernet1/2": "GigabitEthernet0/2"}
+  },
+  "fiber_ports": {
+    "Router-PT": ["FastEthernet4/0", "FastEthernet5/0"],
+    "Switch-PT": ["FastEthernet4/1", "FastEthernet5/1"],
+    "IE-3400": ["GigabitEthernet1/1"]
+  },
+  "notes": {
+    "fiber_ports": "Packet Tracer drops a copper cable plugged into these; pktforge cannot draw fibre cables yet.",
+    "port_renames": "The template's saved config uses the left name; Packet Tracer itself calls the port the right name.",
+    "extra_device": "Packet Tracer adds a 'Power Distribution Device0' to every lab it saves; that is normal."
+  }
+}

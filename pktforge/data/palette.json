@@ -1,0 +1,36 @@
+{
+  "packet_tracer": "9.0.1.0858",
+  "read_from": "the device palette on screen, 2026-10-25 (hover tooltips for groups, icon captions for devices)",
+  "groups": ["Network Devices", "End Devices", "Components", "Connections", "Miscellaneous", "Multiuser Connection", "Legacy Devices"],
+  "sections": {
+    "Network Devices": {
+      "Routers": [
+        ["PT8200", null], ["4331", "ISR4331"], ["4321", "ISR4321"], ["IR8340", "IR8340"], ["1941", "1941"],
+        ["2901", "2901"], ["2911", "2911"], ["819IOX", "819HG-4G-IOX"], ["819HGW", "819HGW"], ["829", "829"],
+        ["1240", "CGR1240"], ["IR1101", "IR1101"], ["PT-Router", "Router-PT"], ["PT-Empty", null],
+        ["1841", "1841"], ["2620XM", "2620XM"], ["2621XM", "2621XM"], ["2811", "2811"]
+      ],
+      "Switches": [
+        ["2960", "2960-24TT"], ["PT-Switch", "Switch-PT"], ["PT-Empty", null], ["3560 24PS", "3560-24PS"],
+        ["3650 24PS", "3650-24PS"], ["IE 2000", "IE-2000"], ["IE-3400", "IE-3400"], ["IE-9320", "IE-9320"],
+        ["2950-24", "2950-24"], ["2950T", "2950T-24"]
+      ],
+      "Hubs": [["PT-Hub", "Hub-PT"], ["PT-Repeater", null], ["Coaxial Splitter", null]],
+      "Wireless Devices": [
+        ["Meraki", null], ["LAP-PT", "LAP-PT"], ["3702i", null], ["WLC", null], ["3504", null], ["2504", null],
+        ["Home Router", "HomeRouter-PT-AC"], ["AP-PT", "AccessPoint-PT"]
+      ],
+      "Security": [["ISA3000", null], ["5506", null], ["5505", "5505"], ["Cyber Observer", "CyberObserver"]],
+      "WAN Emulation": [["PT-Cloud", "Cloud-PT"], ["PT-Empty", null], ["DSL Modem", "DSL-Modem-PT"], ["Cable Modem", null]]
+    },
+    "End Devices": {
+      "End Devices": [
+        ["PC", "PC-PT"], ["Laptop", "Laptop-PT"], ["Server", "Server-PT"], ["Meraki Server", "Meraki-Server"],
+        ["Network Controller", null], ["Printer", null], ["IP Phone", null], ["VoIP Device", "Home-VoIP-PT"],
+        ["Phone", "Analog-Phone-PT"], ["TV", null], ["Tablet", "TabletPC-PT"], ["Smart Phone", "SMARTPHONE-PT"],
+        ["Generic Wireless", null], ["Generic Wired", null], ["Sniffer", "Sniffer"]
+      ]
+    }
+  },
+  "unread": "The Wireless Devices, Switches and the four other End Devices sections (Home, Industry, Smart City, Power Grid) scroll past the screen edge; their entries are only partly listed. Components, Connections, Miscellaneous, Multiuser Connection and Legacy Devices were not opened."
+}

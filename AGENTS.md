@@ -5,6 +5,7 @@ Tracer XML (it is ~1 MB, strict, and fails silently).
 
 ```bash
 pktforge guide            # full usage guide
+pktforge guide devices    # every model, its exact port names, modules, and Packet Tracer's palette labels
 pktforge guide lessons    # why files "look right but pass no traffic" (read before debugging)
 pktforge schema           # JSON Schema for the spec
 pktforge init lab         # starter spec -> lab.json
@@ -28,8 +29,13 @@ From a checkout without installing: `python -m pktforge <command>`.
 
 1. Loop `check --json` until `ok` is true; each finding carries a `fix`. Do not pass `--force` to silence errors.
 2. Put IP addresses in the router `config`, never in port fields. Use `/nn` on end-device `ip`.
-3. Use verified models (`2911`, `2960-24TT`, `PC-PT`, `Server-PT`) unless the user needs something else; say so
-   when you use an unverified one.
+3. Pick models from `pktforge catalog` and copy port names from `pktforge ports MODEL` (they differ per model:
+   `Gi0/0`, `Gi0/0/0`, `Gi1/0/1`...). Prefer `traffic-verified` (`2911`, `2960-24TT`, `PC-PT`, `Server-PT`);
+   say so when you use anything weaker. Never use a `rejected` model (access points are among them): tell the
+   user to add it by hand.
+3b. Start from the closest template: `pktforge init x -t campus-vlan | wan-ospf-areas | hub-spoke-43 | bank-cs5`.
+    For a big topology write a small generator script (see `scripts/example_generators/`) and leave out every
+    `at` to get a tidy-tree layout.
 4. `build` output is a `.pkt`. Give the user that file; no conversion step is needed.
 5. Report what you did not verify. `check` + `build` prove consistency, **not** that traffic flows. If you can
    open Packet Tracer, do, and read `show ip interface brief` first.

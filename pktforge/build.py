@@ -5,13 +5,14 @@ templates get wrong; each one links to its entry in docs/LESSONS.md.
 """
 import gzip
 import ipaddress
+import json
 import os
 import re
 import tempfile
 import xml.etree.ElementTree as ET
 
 import pktforge
-from pktforge import lint, ports
+from pktforge import iosparse, lint, ports
 from pktforge.issues import ERROR, INFO, WARNING, Issue, SpecError
 
 import lab_api
@@ -39,21 +40,44 @@ def module_names():
     return sorted(_templates()[1])
 
 
-def template_counts(model):
-    """Port-type counts of a model's template (used to derive valid port names)."""
+_NOT_PHYSICAL = re.compile(r"^(Vlan|Loopback|Tunnel|Cellular|Dot11|Bluetooth|wlan|VirtualPortGroup|BDI)", re.I)
+_SERIAL_MODULES = ("HWIC-2T", "WIC-2T", "NIM-2T")
+
+
+def model_ports(model, modules=()):
+    """Ordered physical port names of a model, as Packet Tracer itself names them.
+
+    IOS devices carry an `interface X` block per port in their template config, which is Packet Tracer's own
+    spelling (Gi0/0/0 on an ISR4321, Gi1/0/1 on a 3650, Fa1/0 on a Router-PT ...). Devices without a config
+    (PCs, servers, hubs) fall back to the port types, numbered from 0.
+    """
     models, _ = _templates()
     el = ET.fromstring(models[model].decode("utf-8", "replace"))
-    counts = {}
-    for p in el.iter("PORT"):
-        t = p.findtext("TYPE")
-        counts[t] = counts.get(t, 0) + 1
-    return counts
+    renames = ports.PORT_RENAMES.get(model, {})
+    names = []
+    for l in el.findall("ENGINE/RUNNINGCONFIG/LINE"):
+        m = re.match(r"interface\s+(\S+)$", (l.text or "").strip())
+        if m and not _NOT_PHYSICAL.match(m.group(1)):
+            name = ports.canon_port(m.group(1))
+            names.append(renames.get(name, name))
+    if not names:
+        count = {}
+        for p in el.iter("PORT"):
+            prefix = {"eCopperFastEthernet": "FastEthernet", "eCopperGigabitEthernet": "GigabitEthernet",
+                      "eCopperEthernet": "Ethernet"}.get(p.findtext("TYPE"))
+            if prefix:
+                n = count.get(prefix, 0)
+                count[prefix] = n + 1
+                names.append("%s%d" % (prefix, n))
+    serial_mods = sum(1 for m in modules if m.upper().replace("_", "-") in _SERIAL_MODULES)
+    have = sum(1 for n in names if n.startswith("Serial"))
+    for i in range(2 * serial_mods):
+        names.append("Serial0/%d/%d" % ((have + i) // 2, (have + i) % 2))
+    return names
 
 
 def port_catalog(model, modules=()):
-    kind = lab_api.kind_for_model(model)
-    serial_mods = sum(1 for m in modules if m.upper().replace("_", "-") in ("HWIC-2T", "WIC-2T", "NIM-2T"))
-    return ports.catalog(kind, template_counts(model), serial_mods)
+    return set(model_ports(model, modules))
 
 
 def _seed_path():
@@ -77,8 +101,62 @@ def _cleanup_seed():
 
 
 # --------------------------------------------------------------------------- #
+def _tree_layout(spec):
+    """Whole-diagram layout for specs that give no positions: a tidy tree grown from the best-connected router.
+
+    Breadth-first from the root, each device sits one row below its parent; leaves take the next free column and
+    parents are centred over their children, so LANs hang under their routers instead of lining up in one row.
+    """
+    names = [d.name for d in spec.devices]
+    kinds = {d.name: lab_api.kind_for_model(d.model) for d in spec.devices}
+    adj = {n: [] for n in names}
+    for l in spec.links:
+        if l.a in adj and l.b in adj and l.b not in adj[l.a]:
+            adj[l.a].append(l.b)
+            adj[l.b].append(l.a)
+    pos, col, seen = {}, [0], set()
+    colw, rowh = 120, 170
+
+    def root_of(pool):
+        routers = [n for n in pool if kinds[n] in ("router", "firewall")] or pool
+        return max(routers, key=lambda n: (len(adj[n]), -names.index(n)))
+
+    def grow(root):
+        depth, parent, order = {root: 0}, {root: None}, [root]
+        for n in order:
+            for m in adj[n]:
+                if m not in depth:
+                    depth[m], parent[m] = depth[n] + 1, n
+                    order.append(m)
+        kids = {n: [m for m in order if parent[m] == n] for n in order}
+
+        def place(n):
+            if not kids[n]:
+                x = col[0] * colw
+                col[0] += 1
+            else:
+                xs = [place(k) for k in kids[n]]
+                x = sum(xs) / len(xs)
+            pos[n] = (int(60 + x), 60 + depth[n] * rowh)
+            return x
+
+        place(root)
+        seen.update(order)
+        col[0] += 1                      # gap before the next disconnected piece
+
+    while len(seen) < len(names):
+        grow(root_of([n for n in names if n not in seen]))
+    return pos
+
+
 def _auto_positions(spec):
-    """Positions for devices without `at`: tiered rows, never closer than 90 units."""
+    """Positions for devices without `at`.
+
+    No `at` anywhere -> a tidy tree (_tree_layout). A mix -> keep the given ones and drop the rest into tiered
+    rows, never closer than 90 units to anything placed.
+    """
+    if spec.devices and not any(d.at for d in spec.devices):
+        return _tree_layout(spec)
     pos = {d.name: d.at for d in spec.devices if d.at}
     taken = list(pos.values())
     counters = {}
@@ -120,6 +198,74 @@ def _put_config(el, lines):
             e.remove(c)
         for l in lines:
             ET.SubElement(e, "LINE").text = l
+
+
+def _pt_help():
+    if "help" not in _cache:
+        with open(os.path.join(pktforge.DATA_DIR, "pt_help.json"), encoding="utf-8") as fh:
+            _cache["help"] = json.load(fh)["devices"]
+    return _cache["help"]
+
+
+def device_checks(spec):
+    """Per-model findings from what was learned by opening models in Packet Tracer (data/census.json)."""
+    out, models, seen = [], set(model_names()), set()
+    by_name = {d.name: d for d in spec.devices}
+    help_ = _pt_help()
+    for d in spec.devices:
+        where = "device " + d.name
+        if d.model in ports.REJECTED:
+            out.append(Issue("E018", ERROR, "Packet Tracer 9.0.1 refuses to open files that contain a %s (%s)" % (
+                d.model, ports.REJECTED[d.model]), where,
+                "pick another model; `pktforge catalog` lists what loads. Add this one by hand in Packet Tracer"))
+        elif d.model in models and d.model not in ports.VERIFIED_MODELS and d.model not in seen:
+            seen.add(d.model)
+            out.append(Issue("S050", INFO, "model %s was never opened in Packet Tracer 9.0.1 by pktforge's census; "
+                             "its port names are unverified" % d.model, where,
+                             "open the built file and check the cables, or use a verified model"))
+        known = set(help_.get(d.model, {}).get("modules", []))
+        for m in d.modules:
+            if known and m not in known:
+                out.append(Issue("W002", WARNING, "module %s is not listed as compatible with %s in Packet Tracer's "
+                                 "help (it lists: %s)" % (m, d.model, ", ".join(sorted(known))), where,
+                                 "Packet Tracer may refuse to power the device"))
+    for l in spec.links:
+        for end, port in ((l.a, l.a_port), (l.b, l.b_port)):
+            dev = by_name.get(end)
+            if dev and port in ports.FIBER_PORTS.get(dev.model, ()):
+                out.append(Issue("E009", ERROR, "%s %s is a fibre port; Packet Tracer drops copper cables there" % (
+                    end, port), "links[%d]" % l.index,
+                    "use one of the copper ports (`pktforge ports %s`)" % dev.model))
+    return out
+
+
+def _sync_vlans(el, d):
+    """Create the VLANs a switch config declares.
+
+    Packet Tracer keeps the VLAN database in <ENGINE><VLANS>, not in the replayed config: a `vlan 10` line is
+    accepted but creates nothing, so access ports end up in a VLAN that does not exist and never forward.
+    """
+    cfg = iosparse.parse(d.config)
+    vlans = el.find("ENGINE/VLANS")
+    wanted = set(cfg.vlans) | {i.access_vlan for i in cfg.ifaces.values()}   # real IOS also auto-creates these
+    if vlans is None or not wanted - {1}:
+        return
+    have = {int(v.get("number")): v for v in vlans.findall("VLAN")}
+    sample = next(iter(have.values()), None)
+    for num in sorted(wanted):
+        if num in have or not 1 <= num <= 1001:
+            continue
+        v = ET.Element("VLAN")
+        v.set("number", str(num))
+        if sample is not None and sample.get("rspan") is not None:
+            v.set("rspan", "0")
+        v.set("name", cfg.vlan_names.get(num, "VLAN%04d" % num))
+        vlans.append(v)
+    ordered = sorted(vlans.findall("VLAN"), key=lambda v: int(v.get("number")))
+    for v in list(vlans):
+        vlans.remove(v)
+    for v in ordered:
+        vlans.append(v)
 
 
 def _has_clock(lines, iface):
@@ -209,6 +355,7 @@ def build_lab(spec):
                     issues.append(Issue("S031", INFO, "added `clock rate %d` on %s %s (DCE end of a serial link)"
                                         % (l.clock, d.name, port), "device " + d.name))
         _put_config(lab._els[ids[d.name]], _ios_document(d, extra))
+        _sync_vlans(lab._els[ids[d.name]], d)
 
     # ---- sanitise (LESSONS L1-L3)
     for device in lab.devs.findall("DEVICE"):

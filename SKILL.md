@@ -16,5 +16,6 @@ Then run `pktforge guide` and follow it. Short version:
 4. Tell the user the printed manual steps and what you did not verify. Passing `check` does not prove traffic
    flows; opening the file in Packet Tracer and reading `show ip interface brief` does.
 
-`pktforge guide lessons` explains every trap (stale port IPs, gateways, DCE clocks, cable types) - read it
+`pktforge guide devices` lists every model with its exact port names (they differ per model) and which ones
+Packet Tracer refuses (all access points); pick from it rather than guessing. `pktforge guide lessons` explains every trap (stale port IPs, gateways, DCE clocks, cable types) - read it
 before debugging a lab that "looks right but doesn't ping".

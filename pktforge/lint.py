@@ -1,7 +1,7 @@
 """Static checks that catch, before Packet Tracer opens the file, the mistakes
 that make a lab *look* right but pass no traffic.
 
-Every rule here exists because it bit a real build (see docs/LESSONS.md).
+Every rule here exists because it bit a real build (see pktforge/data/LESSONS.md).
 The checks run on a small network model built either from a spec or from the
 XML inside a .pkt, so a hand-edited or third-party file can be audited too.
 """
@@ -13,31 +13,10 @@ from dataclasses import dataclass, field
 import pktforge  # noqa: F401  (puts the vendored modules on sys.path)
 import lab_api
 
+from pktforge import iosparse
+from pktforge.iosparse import Iface
 from pktforge.issues import ERROR, INFO, WARNING, Issue
 from pktforge.ports import ENDPOINT_KINDS, IOS_KINDS, canon_port, is_switch_like
-
-# global commands that end an `interface` block in CLI-style (unindented) configs
-_GLOBAL = re.compile(r"^(router|line|ip route|ip nat|ip dhcp|ip domain|ip classless|access-list|hostname|"
-                     r"enable|username|vlan|spanning-tree|service|banner|no ip domain|crypto|ipv6 unicast|"
-                     r"logging|snmp-server|ntp|end|exit|!)\b", re.I)
-_IP_ADDR = re.compile(r"^\s*ip address\s+(\d+\.\d+\.\d+\.\d+)\s+(\d+\.\d+\.\d+\.\d+)\s*$", re.I)
-
-
-@dataclass
-class Iface:
-    name: str
-    ip: str = None
-    mask: str = None
-    shutdown: bool = None
-
-    @property
-    def network(self):
-        if not self.ip:
-            return None
-        try:
-            return ipaddress.ip_interface("%s/%s" % (self.ip, self.mask)).network
-        except ValueError:
-            return None
 
 
 @dataclass
@@ -47,7 +26,9 @@ class NDev:
     kind: str
     ifaces: dict = field(default_factory=dict)
     config: list = field(default_factory=list)
+    cfg: iosparse.Cfg = None
     gateway: str = None
+    dhcp: bool = False
     has_ip_cfg: bool = True
 
     @property
@@ -73,28 +54,8 @@ class Net:
 
 
 def parse_ios(lines):
-    """Extract interfaces and their IPs from IOS lines (CLI or running-config style)."""
-    ifaces, cur = {}, None
-    for raw in lines:
-        s = raw.strip()
-        m = re.match(r"^interface\s+(\S+)$", s, re.I)
-        if m:
-            cur = ifaces.setdefault(canon_port(m.group(1)), Iface(canon_port(m.group(1))))
-            continue
-        if cur is not None:
-            if not raw.startswith(" ") and _GLOBAL.match(s) and not s.lower().startswith(("no shutdown", "shutdown")):
-                cur = None
-                continue
-            ma = _IP_ADDR.match(raw)
-            if ma:
-                cur.ip, cur.mask = ma.group(1), ma.group(2)
-            elif s.lower() == "no ip address":
-                cur.ip = cur.mask = None
-            elif s.lower() == "shutdown":
-                cur.shutdown = True
-            elif s.lower() == "no shutdown":
-                cur.shutdown = False
-    return ifaces
+    """Interfaces of an IOS config (kept for callers that only need addresses)."""
+    return iosparse.parse(lines).ifaces
 
 
 def static_routes(lines):
@@ -118,16 +79,24 @@ def ospf_networks(lines):
 # --------------------------------------------------------------------------- #
 # model construction
 # --------------------------------------------------------------------------- #
+def _ios_dev(name, model, kind, lines):
+    nd = NDev(name, model, kind, config=list(lines))
+    nd.cfg = iosparse.parse(lines)
+    nd.ifaces = nd.cfg.ifaces
+    return nd
+
+
 def net_from_spec(spec):
     net = Net()
     for d in spec.devices:
         kind = lab_api.kind_for_model(d.model)
-        nd = NDev(d.name, d.model, kind, config=list(d.config))
         if kind in IOS_KINDS:
-            nd.ifaces = parse_ios(d.config)
+            nd = _ios_dev(d.name, d.model, kind, d.config)
         else:
+            nd = NDev(d.name, d.model, kind, config=list(d.config))
             nd.ifaces = {"": Iface("", d.ip, d.mask)}
             nd.gateway = d.gateway
+            nd.dhcp = d.dhcp
             nd.has_ip_cfg = bool(d.ip) or d.dhcp
         net.devs[d.name] = nd
     for l in spec.links:
@@ -145,16 +114,17 @@ def net_from_xml(root):
         model = eng.find("TYPE").get("model", "") if eng.find("TYPE") is not None else ""
         kind = lab_api.kind_for_model(model)
         lines = [l.text or "" for l in eng.findall("RUNNINGCONFIG/LINE")]
-        nd = NDev(name, model, kind, config=lines)
         if kind in IOS_KINDS:
-            nd.ifaces = parse_ios(lines)
+            nd = _ios_dev(name, model, kind, lines)
         else:
+            nd = NDev(name, model, kind, config=lines)
             p = d.find(".//PORT")
             ip = p.findtext("IP") if p is not None else None
             mask = p.findtext("SUBNET") if p is not None else None
             nd.ifaces = {"": Iface("", ip or None, mask or None)}
             nd.gateway = (p.findtext("PORT_GATEWAY") if p is not None else None) or None
-            nd.has_ip_cfg = bool(ip) or (p is not None and p.findtext("PORT_DHCP_ENABLE") == "true")
+            nd.dhcp = p is not None and p.findtext("PORT_DHCP_ENABLE") == "true"
+            nd.has_ip_cfg = bool(ip) or nd.dhcp
         ids[eng.findtext("SAVE_REF_ID")] = name
         net.devs[name] = nd
     for L in root.findall("NETWORK/LINKS/LINK"):
@@ -169,6 +139,86 @@ def net_from_xml(root):
         ctype = "eSerial" if L.findtext("TYPE") == "eSerial" else c.findtext("TYPE")
         net.links.append(NLink(a, canon_port(ports[0]), b, canon_port(ports[1]), ctype, dce))
     return net
+
+
+# --------------------------------------------------------------------------- #
+# layer-2 segments (VLAN aware)
+# --------------------------------------------------------------------------- #
+def segments(net):
+    """Group layer-3 interfaces into broadcast segments.
+
+    A segment is one VLAN on one connected set of switches (trunks carry many VLANs; an access port carries one),
+    a router-on-a-stick sub-interface joins the VLAN its `encapsulation dot1Q` names, and a direct cable between
+    two layer-3 devices is its own segment. Returns a list of [(device, port, Iface), ...].
+    """
+    parent = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        parent[find(a)] = find(b)
+
+    all_vlans = {1}
+    for d in net.devs.values():
+        if d.cfg is not None:
+            all_vlans |= d.cfg.vlans
+            for i in d.cfg.ifaces.values():
+                all_vlans.add(i.access_vlan)
+                if i.vlan:
+                    all_vlans.add(i.vlan)
+
+    def sw(d):
+        return is_switch_like(d.kind, d.model)
+
+    def swport(d, port):
+        return d.ifaces.get(port) or Iface(port)
+
+    for l in net.links:
+        if l.a not in net.devs or l.b not in net.devs:
+            continue
+        A, B = net.devs[l.a], net.devs[l.b]
+        if not sw(A) and not sw(B):
+            union(("l3", A.name, l.a_port), ("l3", B.name, l.b_port))
+        elif sw(A) and sw(B):
+            ia, ib = swport(A, l.a_port), swport(B, l.b_port)
+            if "trunk" in (ia.mode, ib.mode):
+                allowed = all_vlans
+                for i in (ia, ib):
+                    if i.trunk_vlans is not None:
+                        allowed = allowed & i.trunk_vlans
+                for v in allowed:
+                    union(("vlan", A.name, v), ("vlan", B.name, v))
+            else:
+                union(("vlan", A.name, ia.access_vlan), ("vlan", B.name, ib.access_vlan))
+        else:
+            S, sp, O, op = (A, l.a_port, B, l.b_port) if sw(A) else (B, l.b_port, A, l.a_port)
+            i = swport(S, sp)
+            if i.mode == "trunk":
+                for sub in O.ifaces.values():
+                    if sub.vlan and sub.name.split(".")[0] == op and (i.trunk_vlans is None or sub.vlan in i.trunk_vlans):
+                        union(("vlan", S.name, sub.vlan), ("l3", O.name, sub.name))
+                union(("vlan", S.name, i.native), ("l3", O.name, op))
+            else:
+                union(("vlan", S.name, i.access_vlan), ("l3", O.name, op))
+
+    groups = defaultdict(list)
+    for d in net.devs.values():
+        if sw(d):
+            continue
+        if d.is_end or d.kind not in IOS_KINDS:
+            ports = {l.a_port for l in net.links if l.a == d.name} | {l.b_port for l in net.links if l.b == d.name}
+            iface = d.ifaces.get("")
+            for p in ports:
+                groups[find(("l3", d.name, p))].append((d, p, iface))
+        else:
+            for name, iface in d.ifaces.items():
+                groups[find(("l3", d.name, name))].append((d, name, iface))
+    return list(groups.values())
 
 
 # --------------------------------------------------------------------------- #
@@ -228,6 +278,23 @@ def check_net(net, verified_ports=None):
                         "Packet Tracer rejects the second `ip address` when it replays the config, so that "
                         "interface comes up with no address. Give each interface its own subnet"))
 
+    # --- order-dependent commands Packet Tracer rejects on replay
+    for dev in net.devs.values():
+        if dev.cfg is None:
+            continue
+        for i in dev.cfg.ifaces.values():
+            if i.ip and "." in i.name and (i.vlan is None or i.ip_before_encap):
+                out.append(Issue("E016", ERROR, "%s %s: `ip address` before (or without) `encapsulation dot1Q N`" % (
+                    dev.name, i.name), dev.name,
+                    "put `encapsulation dot1Q <vlan>` first; IOS refuses an address on a sub-interface that has no VLAN"))
+            for name, _dir in i.acls:
+                if name not in dev.cfg.acls:
+                    out.append(Issue("W060", WARNING, "%s %s applies ACL %s, which is never defined" % (
+                        dev.name, i.name, name), dev.name, "define it with `ip access-list` / `access-list`"))
+        for pool, rule in dev.cfg.nat_bad_pool:
+            out.append(Issue("E017", ERROR, "%s: `%s` uses NAT pool %s before it is defined" % (dev.name, rule, pool),
+                             dev.name, "write `ip nat pool %s ...` earlier in the config" % pool))
+
     # --- duplicate IPs
     seen = {}
     for dev in net.devs.values():
@@ -239,7 +306,7 @@ def check_net(net, verified_ports=None):
             else:
                 seen[key] = dev.name
 
-    # --- stale/missing end-device addressing
+    # --- end-device addressing
     for dev in net.devs.values():
         if dev.is_end:
             i = dev.ifaces[""]
@@ -257,54 +324,39 @@ def check_net(net, verified_ports=None):
                     out.append(Issue("E013", ERROR, "%s: gateway %r is not an IP address" % (dev.name, dev.gateway),
                                      dev.name))
 
-    # --- broadcast domains: switches/hubs merge their neighbours; routers and hosts do not
-    parent = {}
-
-    def find(x):
-        parent.setdefault(x, x)
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a, b):
-        parent[find(a)] = find(b)
-
-    # a node is (device) for switches, (device, port) for L3 devices
-    def node(devname, port):
-        d = net.devs[devname]
-        return ("sw", devname) if is_switch_like(d.kind, d.model) else (devname, port)
-
-    for l in net.links:
-        if l.a in net.devs and l.b in net.devs:
-            union(node(l.a, l.a_port), node(l.b, l.b_port))
-    domains = defaultdict(list)
-    for dev in net.devs.values():
-        if is_switch_like(dev.kind, dev.model):
-            continue
-        for l in net.links:
-            for end, port in ((l.a, l.a_port), (l.b, l.b_port)):
-                if end == dev.name:
-                    iface = dev.ifaces.get(port if not dev.is_end else "")
-                    domains[find((dev.name, port))].append((dev, port, iface))
-    for members in domains.values():
+    # --- layer-2 segments
+    for members in segments(net):
         nets_here = {}
         for dev, port, iface in members:
             if iface is not None and iface.network is not None:
                 nets_here.setdefault(iface.network, []).append("%s %s" % (dev.name, port or ""))
         if len(nets_here) > 1:
             desc = "; ".join("%s = %s" % (n, ", ".join(v)) for n, v in nets_here.items())
-            out.append(Issue("E014", ERROR, "devices on the same cable segment are in different subnets: " + desc,
-                             "", "put both ends of a link (and everything on one switch) in one subnet - "
+            out.append(Issue("E014", ERROR, "devices in one broadcast segment are in different subnets: " + desc,
+                             "", "put both ends of a link (and everything in one VLAN) in one subnet - "
                                  "this is why pings fail even though the diagram looks right"))
         ips_here = {str(i.ip) for _d, _p, i in members if i is not None and i.ip}
         for dev, port, iface in members:
-            if dev.is_end and dev.gateway and ips_here and dev.gateway not in ips_here:
-                routers = [d for d, _p, i in members if not d.is_end]
-                if routers:
-                    out.append(Issue("E015", ERROR, "%s: gateway %s is not an address of any device on its LAN "
-                                     "(found: %s)" % (dev.name, dev.gateway, ", ".join(sorted(ips_here))),
-                                     dev.name, "set gateway to the router interface that faces this LAN"))
+            if dev.is_end and dev.gateway and dev.gateway not in ips_here:
+                out.append(Issue("E015", ERROR, "%s: gateway %s is not an address of any device in its VLAN/LAN "
+                                 "(found: %s)" % (dev.name, dev.gateway, ", ".join(sorted(ips_here)) or "none"),
+                                 dev.name, "give the router the gateway address on the interface or sub-interface "
+                                           "that faces this VLAN, and check trunk/access VLAN numbers"))
+            if dev.is_end and dev.dhcp:
+                subnets = [i.network for _d, _p, i in members if i is not None and i.ip and not _d.is_end]
+                served = False
+                for d2, _p, i2 in members:
+                    if d2.is_end or d2.cfg is None:
+                        continue
+                    if i2 is not None and i2.helpers:
+                        served = True
+                    for pool in d2.cfg.dhcp_pools:
+                        if pool["network"] is not None and pool["network"] in subnets:
+                            served = True
+                if not served:
+                    out.append(Issue("W070", WARNING, "%s uses DHCP but nothing in its segment offers it" % dev.name,
+                                     dev.name, "add an `ip dhcp pool` for this VLAN's subnet on the router "
+                                               "(or `ip helper-address` on its interface)"))
 
     # --- routing sanity
     for dev in net.devs.values():
@@ -367,6 +419,16 @@ def check_xml(root):
             out.append(Issue("X004", WARNING, "%s is powered off" % name, name))
         model = d.find("ENGINE/TYPE").get("model", "") if d.find("ENGINE/TYPE") is not None else ""
         kind = lab_api.kind_for_model(model)
+        if kind in IOS_KINDS and is_switch_like(kind, model):
+            cfg = iosparse.parse([l.text or "" for l in d.findall("ENGINE/RUNNINGCONFIG/LINE")])
+            present = {int(v.get("number")) for v in d.findall("ENGINE/VLANS/VLAN")}
+            missing = sorted({i.access_vlan for i in cfg.ifaces.values()} | cfg.vlans) if present else []
+            missing = [v for v in missing if v not in present and 1 <= v <= 1001]
+            if missing:
+                out.append(Issue("X009", ERROR, "%s: VLAN(s) %s are used in the config but missing from the VLAN "
+                                 "database, so those ports will not forward" % (name, ", ".join(map(str, missing))),
+                                 name, "Packet Tracer ignores `vlan N` in a replayed config; add <VLAN number=..> "
+                                       "under <ENGINE><VLANS> (pktforge build does this for you)"))
         if kind in IOS_KINDS:
             stale = [p for p in d.iter("PORT") if (p.findtext("IP") or "").strip()]
             if stale:

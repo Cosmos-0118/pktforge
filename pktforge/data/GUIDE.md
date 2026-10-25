@@ -20,6 +20,21 @@ spec.json --pktforge check--> findings --pktforge build--> lab.pkt  (+ lab.xml, 
 Never claim a lab "works" from `check`/`build` alone. They prove the file is well-formed and the addressing is
 consistent; only opening it in Packet Tracer proves traffic flows.
 
+## Choosing devices (read this before writing a spec)
+
+`pktforge catalog` lists every model with a **status**; `pktforge guide devices` (or `DEVICES.md` in the repo) is
+the full map: valid port names per model, compatible modules, and how Packet Tracer's palette labels ("4331",
+"PT-Switch", "2960") translate to `model` names.
+
+| status | what it means |
+|---|---|
+| `traffic-verified` | `2911`, `2960-24TT`, `PC-PT`, `Server-PT`: pings, OSPF, NAT, VLANs, DHCP, ACLs were proven in Packet Tracer 9.0.1. Use these by default. |
+| `ports-verified` | Opens in Packet Tracer and keeps its cables under the listed port names (32 models: ISR4321/4331, 1841, 1941, 2811, 2901, 3560, 3650, IE switches, 5505, ...). No traffic test yet. |
+| `untested` | Template exists, never opened by pktforge's census. Open the result and look. |
+| `rejected` | Packet Tracer 9.0.1 refuses any file containing it. Add it by hand. |
+
+Always copy port names from `pktforge ports MODEL`; they differ per model (`Gi0/0`, `Gi0/0/0`, `Gi1/0/1`, `Fa0/1`...).
+
 ## Spec in one screen
 
 ```json
@@ -53,7 +68,7 @@ consistent; only opening it in Packet Tracer proves traffic flows.
 | field | notes |
 |---|---|
 | `devices[].model` | `pktforge models`. Verified in PT 9.0.1: `2911`, `2960-24TT`, `PC-PT`, `Server-PT`. |
-| `devices[].at` | `[x, y]` canvas position. Omit for a tiered auto-layout. About 150-200 units apart reads well. |
+| `devices[].at` | `[x, y]` canvas position. **Omit it on every device** for a tidy-tree layout (each LAN hangs under its router; 44 devices came out readable). Mix explicit and omitted and the omitted ones fall into plain rows. About 150-200 units apart reads well by hand. |
 | `devices[].modules` | `["HWIC-2T"]` adds `Serial0/0/0-1` to a router. |
 | `devices[].config` | IOS lines exactly as typed in config mode (array, or one string). Or `config_file`. |
 | `devices[].ip`, `gateway`, `dns`, `dhcp` | End devices. `ip` is `"a.b.c.d/nn"` or ip + `mask`. |
@@ -79,13 +94,14 @@ Config rules:
 |---|---|
 | `pktforge build SPEC [-o DIR] [--no-pkt] [--no-xml] [--force]` | lint, then write `.pkt`, `.xml`, `_cli.txt` |
 | `pktforge check FILE [--strict]` | lint a spec, or audit any existing `.pkt` / `.xml` (also useful on files you did not make) |
-| `pktforge init [NAME] [-t minimal\|bank-cs5]` | write a starter spec |
-| `pktforge models [--kind K] [--modules]` | what you can place |
+| `pktforge init [NAME] [-t TEMPLATE]` | starter spec. Templates: `minimal`, `bank-cs5` (3 routers, OSPF, NAT), `campus-vlan` (trunks, router-on-a-stick, DHCP, ACL), `wan-ospf-areas` (7 routers, 4 OSPF areas, MD5, serial, PAT), `hub-spoke-43` (44 devices, no positions) |
+| `pktforge catalog [--kind K] [--status S] [--md]` | every model: status, ports, modules (`--md` = full report) |
+| `pktforge models [--kind K] [--modules]` | plain list of what you can place |
 | `pktforge ports MODEL [--module HWIC-2T]` | valid port names |
 | `pktforge decode FILE.pkt` / `encode FILE.xml` | convert between `.pkt` and XML |
 | `pktforge cli-backup SPEC` | paste-able per-device config (fallback if a device opens blank) |
 | `pktforge schema` | JSON Schema of the spec |
-| `pktforge guide [lessons]` | this guide / the lessons learned |
+| `pktforge guide [lessons\|devices]` | this guide / the lessons learned / the device map |
 | `pktforge doctor` | self-test the install |
 
 Every command except `init`, `decode`, `encode`, `cli-backup`, `schema` and `guide` takes `--json`.
@@ -102,9 +118,10 @@ Every command except `init`, `decode`, `encode`, `cli-backup`, `schema` and `gui
 
 ## Known limits (be honest about these)
 
-* Only 2911, 2960-24TT, PC-PT, Server-PT were opened and pinged in Packet Tracer. Other models build from real
-  templates but are unverified.
-* One WAN module per router (`Serial0/0/*`). A second HWIC is not supported.
-* No wireless association, no console cables, no DHCP pools on servers, no VLAN/trunk verification yet
-  (VLAN config lines are passed through but untested), no Packet Tracer activity wizard (`.pka`) scoring.
+* Only 2911, 2960-24TT, PC-PT, Server-PT have had traffic pass; 32 more models are cable-verified; 8 models are
+  refused by Packet Tracer 9.0.1 (see the catalogue). Wireless/access points are among the refused ones.
+* One WAN module per router (`Serial0/0/*`). A second HWIC is not supported. No fibre cables.
+* VLANs, 802.1Q trunks, router-on-a-stick, DHCP pools on routers, extended ACLs, OSPF (multi-area, MD5), PAT and
+  serial links are verified. Not yet: EtherChannel, port security, HSRP, STP tuning, DHCP pools on servers, console
+  cables, wireless association, activity (`.pka`) scoring.
 * The `.pkt` targets Packet Tracer 9.0.x. Older versions have a different schema.

@@ -1,0 +1,570 @@
+{
+ "name": "hub-spoke-43",
+ "devices": [
+  {
+   "name": "SW-CORE",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "R-HUB",
+   "model": "2911",
+   "config": [
+    "hostname R-HUB",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.100.0.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 1.1.1.1",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.100.0.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW-HUB",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "HQ-SRV",
+   "model": "Server-PT",
+   "ip": "10.100.0.10/24",
+   "gateway": "10.100.0.1",
+   "services": {
+    "http": true
+   }
+  },
+  {
+   "name": "BR1",
+   "model": "2911",
+   "config": [
+    "hostname BR1",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.2 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.1.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 2.2.2.2",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.1.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW1",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC1-1",
+   "model": "PC-PT",
+   "ip": "10.1.1.11/24",
+   "gateway": "10.1.1.1"
+  },
+  {
+   "name": "PC1-2",
+   "model": "PC-PT",
+   "ip": "10.1.1.12/24",
+   "gateway": "10.1.1.1"
+  },
+  {
+   "name": "PC1-3",
+   "model": "PC-PT",
+   "ip": "10.1.1.13/24",
+   "gateway": "10.1.1.1"
+  },
+  {
+   "name": "BR2",
+   "model": "2911",
+   "config": [
+    "hostname BR2",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.3 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.2.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 3.3.3.3",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.2.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW2",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC2-1",
+   "model": "PC-PT",
+   "ip": "10.1.2.11/24",
+   "gateway": "10.1.2.1"
+  },
+  {
+   "name": "PC2-2",
+   "model": "PC-PT",
+   "ip": "10.1.2.12/24",
+   "gateway": "10.1.2.1"
+  },
+  {
+   "name": "PC2-3",
+   "model": "PC-PT",
+   "ip": "10.1.2.13/24",
+   "gateway": "10.1.2.1"
+  },
+  {
+   "name": "BR3",
+   "model": "2911",
+   "config": [
+    "hostname BR3",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.4 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.3.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 4.4.4.4",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.3.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW3",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC3-1",
+   "model": "PC-PT",
+   "ip": "10.1.3.11/24",
+   "gateway": "10.1.3.1"
+  },
+  {
+   "name": "PC3-2",
+   "model": "PC-PT",
+   "ip": "10.1.3.12/24",
+   "gateway": "10.1.3.1"
+  },
+  {
+   "name": "PC3-3",
+   "model": "PC-PT",
+   "ip": "10.1.3.13/24",
+   "gateway": "10.1.3.1"
+  },
+  {
+   "name": "BR4",
+   "model": "2911",
+   "config": [
+    "hostname BR4",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.5 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.4.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 5.5.5.5",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.4.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW4",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC4-1",
+   "model": "PC-PT",
+   "ip": "10.1.4.11/24",
+   "gateway": "10.1.4.1"
+  },
+  {
+   "name": "PC4-2",
+   "model": "PC-PT",
+   "ip": "10.1.4.12/24",
+   "gateway": "10.1.4.1"
+  },
+  {
+   "name": "PC4-3",
+   "model": "PC-PT",
+   "ip": "10.1.4.13/24",
+   "gateway": "10.1.4.1"
+  },
+  {
+   "name": "BR5",
+   "model": "2911",
+   "config": [
+    "hostname BR5",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.6 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.5.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 6.6.6.6",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.5.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW5",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC5-1",
+   "model": "PC-PT",
+   "ip": "10.1.5.11/24",
+   "gateway": "10.1.5.1"
+  },
+  {
+   "name": "PC5-2",
+   "model": "PC-PT",
+   "ip": "10.1.5.12/24",
+   "gateway": "10.1.5.1"
+  },
+  {
+   "name": "PC5-3",
+   "model": "PC-PT",
+   "ip": "10.1.5.13/24",
+   "gateway": "10.1.5.1"
+  },
+  {
+   "name": "BR6",
+   "model": "2911",
+   "config": [
+    "hostname BR6",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.7 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.6.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 7.7.7.7",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.6.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW6",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC6-1",
+   "model": "PC-PT",
+   "ip": "10.1.6.11/24",
+   "gateway": "10.1.6.1"
+  },
+  {
+   "name": "PC6-2",
+   "model": "PC-PT",
+   "ip": "10.1.6.12/24",
+   "gateway": "10.1.6.1"
+  },
+  {
+   "name": "PC6-3",
+   "model": "PC-PT",
+   "ip": "10.1.6.13/24",
+   "gateway": "10.1.6.1"
+  },
+  {
+   "name": "BR7",
+   "model": "2911",
+   "config": [
+    "hostname BR7",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.8 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.7.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 8.8.8.8",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.7.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW7",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC7-1",
+   "model": "PC-PT",
+   "ip": "10.1.7.11/24",
+   "gateway": "10.1.7.1"
+  },
+  {
+   "name": "PC7-2",
+   "model": "PC-PT",
+   "ip": "10.1.7.12/24",
+   "gateway": "10.1.7.1"
+  },
+  {
+   "name": "PC7-3",
+   "model": "PC-PT",
+   "ip": "10.1.7.13/24",
+   "gateway": "10.1.7.1"
+  },
+  {
+   "name": "BR8",
+   "model": "2911",
+   "config": [
+    "hostname BR8",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.0.9 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.8.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 9.9.9.9",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.0.0.0 0.0.0.255 area 0",
+    " network 10.1.8.0 0.0.0.255 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW8",
+   "model": "2960-24TT"
+  },
+  {
+   "name": "PC8-1",
+   "model": "PC-PT",
+   "ip": "10.1.8.11/24",
+   "gateway": "10.1.8.1"
+  },
+  {
+   "name": "PC8-2",
+   "model": "PC-PT",
+   "ip": "10.1.8.12/24",
+   "gateway": "10.1.8.1"
+  },
+  {
+   "name": "PC8-3",
+   "model": "PC-PT",
+   "ip": "10.1.8.13/24",
+   "gateway": "10.1.8.1"
+  }
+ ],
+ "links": [
+  [
+   "R-HUB:Gi0/0",
+   "SW-CORE:Gi0/1"
+  ],
+  [
+   "R-HUB:Gi0/1",
+   "SW-HUB:Gi0/1"
+  ],
+  [
+   "HQ-SRV:Fa0",
+   "SW-HUB:Fa0/1"
+  ],
+  [
+   "BR1:Gi0/0",
+   "SW-CORE:Fa0/1"
+  ],
+  [
+   "BR1:Gi0/1",
+   "SW1:Gi0/1"
+  ],
+  [
+   "PC1-1:Fa0",
+   "SW1:Fa0/1"
+  ],
+  [
+   "PC1-2:Fa0",
+   "SW1:Fa0/2"
+  ],
+  [
+   "PC1-3:Fa0",
+   "SW1:Fa0/3"
+  ],
+  [
+   "BR2:Gi0/0",
+   "SW-CORE:Fa0/2"
+  ],
+  [
+   "BR2:Gi0/1",
+   "SW2:Gi0/1"
+  ],
+  [
+   "PC2-1:Fa0",
+   "SW2:Fa0/1"
+  ],
+  [
+   "PC2-2:Fa0",
+   "SW2:Fa0/2"
+  ],
+  [
+   "PC2-3:Fa0",
+   "SW2:Fa0/3"
+  ],
+  [
+   "BR3:Gi0/0",
+   "SW-CORE:Fa0/3"
+  ],
+  [
+   "BR3:Gi0/1",
+   "SW3:Gi0/1"
+  ],
+  [
+   "PC3-1:Fa0",
+   "SW3:Fa0/1"
+  ],
+  [
+   "PC3-2:Fa0",
+   "SW3:Fa0/2"
+  ],
+  [
+   "PC3-3:Fa0",
+   "SW3:Fa0/3"
+  ],
+  [
+   "BR4:Gi0/0",
+   "SW-CORE:Fa0/4"
+  ],
+  [
+   "BR4:Gi0/1",
+   "SW4:Gi0/1"
+  ],
+  [
+   "PC4-1:Fa0",
+   "SW4:Fa0/1"
+  ],
+  [
+   "PC4-2:Fa0",
+   "SW4:Fa0/2"
+  ],
+  [
+   "PC4-3:Fa0",
+   "SW4:Fa0/3"
+  ],
+  [
+   "BR5:Gi0/0",
+   "SW-CORE:Fa0/5"
+  ],
+  [
+   "BR5:Gi0/1",
+   "SW5:Gi0/1"
+  ],
+  [
+   "PC5-1:Fa0",
+   "SW5:Fa0/1"
+  ],
+  [
+   "PC5-2:Fa0",
+   "SW5:Fa0/2"
+  ],
+  [
+   "PC5-3:Fa0",
+   "SW5:Fa0/3"
+  ],
+  [
+   "BR6:Gi0/0",
+   "SW-CORE:Fa0/6"
+  ],
+  [
+   "BR6:Gi0/1",
+   "SW6:Gi0/1"
+  ],
+  [
+   "PC6-1:Fa0",
+   "SW6:Fa0/1"
+  ],
+  [
+   "PC6-2:Fa0",
+   "SW6:Fa0/2"
+  ],
+  [
+   "PC6-3:Fa0",
+   "SW6:Fa0/3"
+  ],
+  [
+   "BR7:Gi0/0",
+   "SW-CORE:Fa0/7"
+  ],
+  [
+   "BR7:Gi0/1",
+   "SW7:Gi0/1"
+  ],
+  [
+   "PC7-1:Fa0",
+   "SW7:Fa0/1"
+  ],
+  [
+   "PC7-2:Fa0",
+   "SW7:Fa0/2"
+  ],
+  [
+   "PC7-3:Fa0",
+   "SW7:Fa0/3"
+  ],
+  [
+   "BR8:Gi0/0",
+   "SW-CORE:Fa0/8"
+  ],
+  [
+   "BR8:Gi0/1",
+   "SW8:Gi0/1"
+  ],
+  [
+   "PC8-1:Fa0",
+   "SW8:Fa0/1"
+  ],
+  [
+   "PC8-2:Fa0",
+   "SW8:Fa0/2"
+  ],
+  [
+   "PC8-3:Fa0",
+   "SW8:Fa0/3"
+  ]
+ ]
+}

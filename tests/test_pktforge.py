@@ -34,7 +34,7 @@ def run(*argv):
 
 class Examples(unittest.TestCase):
     def test_examples_lint_clean(self):
-        for name in ("minimal", "bank-cs5"):
+        for name in ("minimal", "bank-cs5", "campus-vlan", "wan-ospf-areas", "hub-spoke-43"):
             s = specmod.load(os.path.join(EXAMPLES, name + ".json"))
             self.assertEqual([i for i in cli.check_spec(s)], [], name)
 
@@ -186,6 +186,137 @@ class Rules(unittest.TestCase):
         self.assertEqual(cable_type("router", "2911", "router", "2911"), "eCrossOver")
         self.assertEqual(cable_type("switch", "2960-24TT", "switch", "2960-24TT"), "eCrossOver")
         self.assertEqual(cable_type("router", "2911", "server", "Server-PT"), "eCrossOver")
+
+
+class StressLessons(unittest.TestCase):
+    """Each test is a defect the three stress-test networks exposed."""
+
+    SW = {"name": "SW1", "model": "2960-24TT", "config": [
+        "vlan 10", " name SALES", " exit", "vlan 20", " name ENG", " exit",
+        "interface GigabitEthernet0/1", " switchport mode trunk", " exit",
+        "interface FastEthernet0/1", " switchport mode access", " switchport access vlan 10", " exit",
+        "interface FastEthernet0/2", " switchport mode access", " switchport access vlan 20", " exit"]}
+
+    def router(self, extra=()):
+        return {"name": "R1", "model": "2911", "config": [
+            "interface GigabitEthernet0/0", " no ip address", " no shutdown", " exit",
+            "interface GigabitEthernet0/0.10", " encapsulation dot1Q 10", " ip address 10.0.10.1 255.255.255.0", " exit",
+            "interface GigabitEthernet0/0.20", " encapsulation dot1Q 20", " ip address 10.0.20.1 255.255.255.0", " exit"
+        ] + list(extra)}
+
+    def vlan_lab(self, gw2="10.0.20.1", a_vlan=None):
+        sw = json.loads(json.dumps(self.SW))
+        if a_vlan:
+            sw["config"][sw["config"].index(" switchport access vlan 10")] = " switchport access vlan %d" % a_vlan
+        return sp([self.router(), sw,
+                   {"name": "PA", "model": "PC-PT", "ip": "10.0.10.11/24", "gateway": "10.0.10.1"},
+                   {"name": "PB", "model": "PC-PT", "ip": "10.0.20.11/24", "gateway": gw2}],
+                  [["PA:Fa0", "SW1:Fa0/1"], ["PB:Fa0", "SW1:Fa0/2"], ["SW1:Gi0/1", "R1:Gi0/0"]])
+
+    def test_vlans_and_subinterfaces_are_not_false_positives(self):
+        self.assertEqual(cli.check_spec(self.vlan_lab()), [])
+
+    def test_gateway_in_the_wrong_vlan_is_caught(self):
+        self.assertIn("E015", codes(cli.check_spec(self.vlan_lab(gw2="10.0.10.1"))))
+        self.assertIn("E013", codes(cli.check_spec(self.vlan_lab(gw2="10.0.10.1"))))
+
+    def test_host_in_the_wrong_access_vlan_is_caught(self):
+        self.assertIn("E015", codes(cli.check_spec(self.vlan_lab(a_vlan=20))))
+
+    def test_ip_before_encapsulation(self):
+        r = {"name": "R1", "model": "2911", "config": [
+            "interface GigabitEthernet0/0.10", " ip address 10.0.10.1 255.255.255.0", " encapsulation dot1Q 10"]}
+        self.assertIn("E016", codes(cli.check_spec(sp([r], []))))
+
+    def test_nat_pool_must_exist_first(self):
+        r = {"name": "R1", "model": "2911", "config": [
+            "access-list 1 permit any", "ip nat inside source list 1 pool P",
+            "ip nat pool P 1.1.1.1 1.1.1.2 netmask 255.255.255.252"]}
+        self.assertIn("E017", codes(cli.check_spec(sp([r], []))))
+
+    def test_undefined_acl_and_dhcp_without_server(self):
+        r = self.router()
+        r["config"] += ["interface GigabitEthernet0/0.10", " ip access-group NOPE in", " exit"]
+        s = sp([r, self.SW, {"name": "PA", "model": "PC-PT", "dhcp": True}],
+               [["PA:Fa0", "SW1:Fa0/1"], ["SW1:Gi0/1", "R1:Gi0/0"]])
+        found = codes(cli.check_spec(s))
+        self.assertIn("W060", found)
+        self.assertIn("W070", found)
+
+    def test_dhcp_pool_satisfies_dhcp_client(self):
+        r = self.router(["ip dhcp pool P", " network 10.0.10.0 255.255.255.0", " exit"])
+        s = sp([r, self.SW, {"name": "PA", "model": "PC-PT", "dhcp": True}],
+               [["PA:Fa0", "SW1:Fa0/1"], ["SW1:Gi0/1", "R1:Gi0/0"]])
+        self.assertNotIn("W070", codes(cli.check_spec(s)))
+
+    def test_vlan_database_is_synced(self):
+        s = sp([self.SW], [])
+        lab, _i, _m = build.build_lab(s)
+        build._cleanup_seed()
+        root = ET.fromstring(build.to_xml(lab))
+        nums = {int(v.get("number")) for v in root.iter("VLAN")}
+        self.assertTrue({10, 20} <= nums)
+        names = {v.get("number"): v.get("name") for v in root.iter("VLAN")}
+        self.assertEqual(names["10"], "SALES")
+        self.assertEqual(lint.check_xml(root), [])
+
+    def test_missing_vlan_in_xml_is_caught(self):
+        s = sp([self.SW], [])
+        lab, _i, _m = build.build_lab(s)
+        build._cleanup_seed()
+        root = ET.fromstring(build.to_xml(lab))
+        for v in list(root.iter("VLAN")):
+            if v.get("number") == "10":
+                for parent in root.iter("VLANS"):
+                    if v in list(parent):
+                        parent.remove(v)
+        self.assertIn("X009", codes(lint.check_xml(root)))
+
+    def test_rejected_model_is_an_error(self):
+        s = sp([{"name": "AP", "model": "AccessPoint-PT"}], [])
+        self.assertIn("E018", codes(cli.check_spec(s)))
+
+    def test_fibre_port_is_an_error(self):
+        sw = {"name": "SW", "model": "Switch-PT"}
+        pc = {"name": "PC", "model": "PC-PT"}
+        s = sp([sw, pc], [["PC:Fa0", "SW:Fa4/1"]])
+        self.assertIn("E009", codes(cli.check_spec(s)))
+
+    def test_incompatible_module_warns(self):
+        s = sp([{"name": "R", "model": "ISR4321", "modules": ["HWIC-2T"]}], [])
+        self.assertIn("W002", codes(cli.check_spec(s)))
+
+    def test_port_names_follow_packet_tracer(self):
+        self.assertIn("GigabitEthernet0/0/1", build.port_catalog("ISR4321"))
+        self.assertIn("GigabitEthernet1/0/24", build.port_catalog("3650-24PS"))
+        self.assertIn("GigabitEthernet0/1", build.port_catalog("2950T-24"))       # PT renames the template's Gi1/1
+        self.assertNotIn("GigabitEthernet1/1", build.port_catalog("2950T-24"))
+        self.assertIn("Serial0/0/1", build.port_catalog("2911", ["HWIC-2T"]))
+
+    def test_tree_layout_has_no_overlaps_and_hangs_lans_under_routers(self):
+        s = specmod.load(os.path.join(EXAMPLES, "hub-spoke-43.json"))
+        self.assertFalse(any(d.at for d in s.devices))
+        pos = build._auto_positions(s)
+        self.assertEqual(len(set(pos.values())), len(s.devices))
+        pts = list(pos.values())
+        for i in range(len(pts)):
+            for j in range(i + 1, len(pts)):
+                self.assertTrue(abs(pts[i][0] - pts[j][0]) >= 100 or abs(pts[i][1] - pts[j][1]) >= 100)
+        self.assertLess(pos["R-HUB"][1], pos["BR1"][1])
+        self.assertLess(pos["BR1"][1], pos["SW1"][1])
+        self.assertLess(pos["SW1"][1], pos["PC1-1"][1])
+
+    def test_catalog(self):
+        from pktforge import catalog
+        es = {e["model"]: e for e in catalog.entries()}
+        self.assertEqual(es["2911"]["status"], "traffic-verified")
+        self.assertEqual(es["AccessPoint-PT"]["status"], "rejected")
+        self.assertEqual(es["LAP-PT"]["kind"], "access-point")
+        md = catalog.markdown()
+        self.assertIn("## Packet Tracer palette map", md)
+        self.assertIn("`ISR4321`", md)
+        self.assertEqual(catalog.compress(["FastEthernet0/1", "FastEthernet0/2", "FastEthernet0/3", "GigabitEthernet0/1"]),
+                         ["FastEthernet0/1-3", "GigabitEthernet0/1"])
 
 
 class XmlAudit(unittest.TestCase):

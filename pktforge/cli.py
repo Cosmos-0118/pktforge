@@ -35,7 +35,7 @@ def check_spec(sp):
     for d in sp.devices:
         if d.model in models:
             cats[d.name] = (build.port_catalog(d.model, d.modules), d.model in ports.VERIFIED_MODELS)
-    return lint.check_net(net, cats)
+    return build.device_checks(sp) + lint.check_net(net, cats)
 
 
 def _load_any(path):
@@ -181,7 +181,24 @@ def _print_data(name):
         sys.stdout.write(fh.read())
 
 
+def cmd_catalog(args):
+    from pktforge import catalog
+    if args.md:
+        print(catalog.markdown())
+        return EXIT_OK
+    rows = [e for e in catalog.entries() if (not args.kind or e["kind"] == args.kind)
+            and (not args.status or e["status"] == args.status)]
+    text = ["%-24s %-17s %-16s %s" % (e["model"], e["kind"], e["status"], ", ".join(catalog.compress(e["ports"]))[:70])
+            for e in rows]
+    _out(args, {"models": rows}, text)
+    return EXIT_OK
+
+
 def cmd_guide(args):
+    if args.topic == "devices":
+        from pktforge import catalog
+        print(catalog.markdown())
+        return EXIT_OK
     _print_data("LESSONS.md" if args.topic == "lessons" else "GUIDE.md")
     return EXIT_OK
 
@@ -248,7 +265,7 @@ def make_parser():
 
     s = add("init", cmd_init, "write a starter spec", json_flag=False)
     s.add_argument("name", nargs="?", default="lab")
-    s.add_argument("-t", "--template", default="minimal", help="minimal | bank-cs5 | wan-ospf-nat")
+    s.add_argument("-t", "--template", default="minimal", help="minimal | bank-cs5 | campus-vlan | wan-ospf-areas | hub-spoke-43")
     s.add_argument("--force", action="store_true")
 
     s = add("models", cmd_models, "list available device models")
@@ -272,8 +289,13 @@ def make_parser():
 
     add("schema", cmd_schema, "print the spec's JSON Schema", json_flag=False)
 
-    s = add("guide", cmd_guide, "print the usage guide (or `lessons`)", json_flag=False)
-    s.add_argument("topic", nargs="?", default="usage", choices=["usage", "lessons"])
+    s = add("catalog", cmd_catalog, "every model with its status, valid ports and modules")
+    s.add_argument("--kind", help="router, switch, pc, server, ...")
+    s.add_argument("--status", choices=["traffic-verified", "ports-verified", "untested", "rejected"])
+    s.add_argument("--md", action="store_true", help="print the full Markdown report (DEVICES.md)")
+
+    s = add("guide", cmd_guide, "print the usage guide, `lessons`, or `devices`", json_flag=False)
+    s.add_argument("topic", nargs="?", default="usage", choices=["usage", "lessons", "devices"])
 
     add("doctor", cmd_doctor, "self-test the installation")
     return p

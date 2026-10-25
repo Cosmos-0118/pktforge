@@ -55,10 +55,44 @@ inferred, so a bad name there is only a warning. `pktforge ports MODEL` lists na
 overlap into an unreadable smear. One short subnet label per network, placed beside the cable
 (`10.0.12.0/30`), reads cleanly. A label's X is its left edge. pktforge's `"labels": "auto"` does this.
 
+**L10. VLANs live in the VLAN database, not in the config.** Found on a campus lab (trunks, router-on-a-stick,
+DHCP, ACL). `vlan 10` / `name SALES` in the replayed config is *accepted and creates nothing*; the database is
+`<ENGINE><VLANS><VLAN number= name=/>`. Access ports then point at a VLAN that does not exist and never forward:
+every switch link stayed amber, DHCP failed (`ipconfig /renew` -> "DHCP request failed") while the router looked
+perfect (`show ip interface brief` all up). *Symptom:* `show vlan brief` lists only `default`. *Fix:* pktforge writes
+every declared VLAN, and every VLAN an access port names, into the database. (`X009`)
+
+**L11. One unloadable template makes Packet Tracer refuse the whole file**, with only "not compatible with this
+version of Cisco Packet Tracer" and no device name. Eight templates do this in 9.0.1: DSL-Modem-PT, HomeRouter-PT-AC,
+Linksys-WRT300N, Meraki-MX65W, Central-Office-Server and all three AccessPoint-PT variants. pktforge refuses to
+build them (`E018`); add those devices by hand. *To find a culprit, bisect*: build one file per model.
+
+**L12. Fibre ports cannot take a copper cable.** Packet Tracer silently drops the cable when it loads the file
+(Router-PT Fa4/0 and Fa5/0, Switch-PT Fa4/1 and Fa5/1, IE-3400 Gi1/1). pktforge raises `E009`.
+
+**L13. A template's own config can name a port wrongly.** The 2950T-24 template says `GigabitEthernet1/1`; Packet
+Tracer calls it `GigabitEthernet0/1` and rewrites the cable when it saves. pktforge carries a rename table
+(`data/census.json`). *Method:* cable the first and last port of every family, open the file in Packet Tracer,
+Save As, decode, and diff the cables (`scripts/census.py`). A cable that comes back under another name, or not at
+all, is a naming error.
+
+**L14. Router-on-a-stick order matters.** `encapsulation dot1Q N` must come *before* `ip address` on a
+sub-interface or IOS refuses the address; the physical port needs `no ip address` and `no shutdown`. (`E016`.)
+Likewise `ip nat pool` before the `ip nat inside source ... pool` that uses it (`E017`).
+
+**L15. Packet Tracer adds a `Power Distribution Device0` to every lab it saves.** Harmless; do not "fix" it.
+
 ## Rules the linter enforces (each one is a way to get "looks right, doesn't work")
 
 | code | meaning |
 |---|---|
+| E009 | copper cable on a fibre port (dropped on load) |
+| E014 / E015 | now VLAN-aware: a segment is one VLAN, sub-interfaces join the VLAN they tag |
+| E016 / E017 | `ip address` before `encapsulation`; NAT pool used before it is defined |
+| E018 | model that Packet Tracer 9.0.1 refuses to open |
+| W002 | module not listed as compatible in Packet Tracer's own help |
+| W060 / W070 | ACL applied but never defined; DHCP client with nothing offering DHCP in its VLAN |
+| X009 | VLAN used by the config but missing from the VLAN database |
 | E010 | two interfaces on one device overlap (see L1) |
 | E011 | duplicate IP anywhere |
 | E013 / E015 | host gateway outside its subnet / not an address on its own LAN |
@@ -76,6 +110,11 @@ overlap into an unreadable smear. One short subnet label per network, placed bes
   `show ip nat translations`. Start with `show ip interface brief`; `unassigned` on a port you configured
   means L1.
 * A device window only opens after the device has been *selected* by a first click, then double-clicked.
+* Opening a file while the current one has "unsaved changes" raises a Yes/No/Cancel prompt that swallows the
+  keystrokes meant for the file dialog; answer No first. Simulated time barely moves at 1x: use the fast-forward
+  button before judging STP (amber links) or DHCP.
+* A blocked ACL shows up as `Reply from <gateway>: Destination host unreachable`, not as a timeout.
+* TTL maths proves the path: 128 minus the routers crossed (126 = two routers, 124 = four).
 * When driving Packet Tracer through computer-use, text typed via the clipboard does not reach the CLI; send
   one key per action. The `|` character cannot be sent that way, so page with the space bar instead of piping.
 

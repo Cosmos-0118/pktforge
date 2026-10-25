@@ -1,13 +1,30 @@
 """Port naming, device classes and cable-type rules.
 
 Packet Tracer's XML never stores port names; they are implied by the order and
-type of the <PORT> elements. This module reproduces the naming for the models
-that were opened and tested in Packet Tracer 9.0.1 (VERIFIED_MODELS) and infers
-it for the rest, where a wrong guess is reported as a warning, not an error.
+type of the <PORT> elements. Names come from each template's own saved config.
+pktforge/data/census.json records which models were then opened in Packet Tracer
+9.0.1 and kept their cables (VERIFIED_MODELS), which only had traffic passed
+through them (TRAFFIC_VERIFIED), and which Packet Tracer refuses outright
+(REJECTED). For unverified models a bad port name is a warning, not an error.
 """
+import json
+import os
 import re
 
-VERIFIED_MODELS = {"2911", "2960-24TT", "PC-PT", "Server-PT"}
+import pktforge
+
+
+def _census():
+    with open(os.path.join(pktforge.DATA_DIR, "census.json"), encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+_C = _census()
+VERIFIED_MODELS = set(_C["ports_verified"])
+TRAFFIC_VERIFIED = set(_C["traffic_verified"])
+REJECTED = dict(_C["rejected"])
+PORT_RENAMES = {m: dict(r) for m, r in _C["port_renames"].items()}
+FIBER_PORTS = {m: list(p) for m, p in _C["fiber_ports"].items()}
 
 _PREFIXES = (
     (re.compile(r"^(fa|fast\w*)$", re.I), "FastEthernet"),
@@ -17,7 +34,7 @@ _PREFIXES = (
     (re.compile(r"^(lo|loop\w*)$", re.I), "Loopback"),
 )
 
-_PORT_RE = re.compile(r"^([A-Za-z]+)\s*(\d[\d/]*)$")
+_PORT_RE = re.compile(r"^([A-Za-z]+)\s*(\d[\d/]*(?:\.\d+)?)$")     # optional .N = dot1Q subinterface
 
 
 def canon_port(name):
@@ -59,29 +76,3 @@ def cable_type(kind_a, model_a, kind_b, model_b):
     b = is_switch_like(kind_b, model_b)
     return "eStraightThrough" if a != b else "eCrossOver"
 
-
-# --------------------------------------------------------------------------- #
-# port catalogue
-# --------------------------------------------------------------------------- #
-def catalog(kind, counts, serial_modules=0):
-    """Return the set of canonical port names a device offers.
-
-    counts: {'eCopperFastEthernet': n, 'eCopperGigabitEthernet': n, 'eSmartSerial': n}
-    serial_modules: number of installed 2-port serial cards (HWIC-2T).
-    """
-    fa = counts.get("eCopperFastEthernet", 0)
-    gi = counts.get("eCopperGigabitEthernet", 0)
-    se = counts.get("eSmartSerial", 0)
-    names = set()
-    if kind in ("router", "firewall"):
-        names |= {"FastEthernet0/%d" % i for i in range(fa)}
-        names |= {"GigabitEthernet0/%d" % i for i in range(gi)}
-        total_se = se + 2 * serial_modules
-        names |= {"Serial0/%d/%d" % (i // 2, i % 2) for i in range(total_se)}
-    elif kind in SWITCH_KINDS:
-        names |= {"FastEthernet0/%d" % i for i in range(1, fa + 1)}
-        names |= {"GigabitEthernet0/%d" % i for i in range(1, gi + 1)}
-    else:
-        names |= {"FastEthernet%d" % i for i in range(fa)}
-        names |= {"GigabitEthernet%d" % i for i in range(gi)}
-    return names

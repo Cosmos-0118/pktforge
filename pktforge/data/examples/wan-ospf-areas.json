@@ -1,0 +1,351 @@
+{
+ "name": "wan-ospf-areas",
+ "devices": [
+  {
+   "name": "R1",
+   "model": "2911",
+   "at": [
+    420,
+    120
+   ],
+   "config": [
+    "hostname R1",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.12.1 255.255.255.252",
+    " ip ospf message-digest-key 1 md5 OSPFkey2026",
+    " ip nat inside",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.0.13.1 255.255.255.252",
+    " ip ospf message-digest-key 1 md5 OSPFkey2026",
+    " ip nat inside",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/2",
+    " ip address 203.0.113.1 255.255.255.252",
+    " ip nat outside",
+    " no shutdown",
+    " exit",
+    "access-list 1 permit 10.0.0.0 0.255.255.255",
+    "ip nat inside source list 1 interface GigabitEthernet0/2 overload",
+    "ip route 0.0.0.0 0.0.0.0 203.0.113.2",
+    "router ospf 1",
+    " router-id 1.1.1.1",
+    " default-information originate",
+    "  area 0 authentication message-digest",
+    " network 10.0.12.0 0.0.0.3 area 0",
+    " network 10.0.13.0 0.0.0.3 area 0",
+    " exit"
+   ]
+  },
+  {
+   "name": "R2",
+   "model": "2911",
+   "at": [
+    240,
+    330
+   ],
+   "modules": [
+    "HWIC-2T"
+   ],
+   "config": [
+    "hostname R2",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.12.2 255.255.255.252",
+    " ip ospf message-digest-key 1 md5 OSPFkey2026",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.0.23.1 255.255.255.252",
+    " ip ospf message-digest-key 1 md5 OSPFkey2026",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/2",
+    " ip address 10.1.24.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface Serial0/0/0",
+    " ip address 10.3.26.1 255.255.255.252",
+    " clock rate 64000",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 2.2.2.2",
+    "  area 0 authentication message-digest",
+    "  area 1 range 10.1.0.0 255.255.0.0",
+    "  area 3 range 10.3.0.0 255.255.0.0",
+    " network 10.0.12.0 0.0.0.3 area 0",
+    " network 10.0.23.0 0.0.0.3 area 0",
+    " network 10.1.24.0 0.0.0.3 area 1",
+    " network 10.3.26.0 0.0.0.3 area 3",
+    " exit"
+   ]
+  },
+  {
+   "name": "R3",
+   "model": "2911",
+   "at": [
+    600,
+    330
+   ],
+   "config": [
+    "hostname R3",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.0.23.2 255.255.255.252",
+    " ip ospf message-digest-key 1 md5 OSPFkey2026",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.0.13.2 255.255.255.252",
+    " ip ospf message-digest-key 1 md5 OSPFkey2026",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/2",
+    " ip address 10.2.35.1 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 3.3.3.3",
+    "  area 0 authentication message-digest",
+    "  area 2 range 10.2.0.0 255.255.0.0",
+    " network 10.0.23.0 0.0.0.3 area 0",
+    " network 10.0.13.0 0.0.0.3 area 0",
+    " network 10.2.35.0 0.0.0.3 area 2",
+    " exit"
+   ]
+  },
+  {
+   "name": "R4",
+   "model": "2911",
+   "at": [
+    80,
+    520
+   ],
+   "modules": [],
+   "config": [
+    "hostname R4",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.1.24.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.1.40.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 4.4.4.4",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.1.24.0 0.0.0.3 area 1",
+    " network 10.1.40.0 0.0.0.255 area 1",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW4",
+   "model": "2960-24TT",
+   "at": [
+    80,
+    660
+   ]
+  },
+  {
+   "name": "PC4",
+   "model": "PC-PT",
+   "at": [
+    80,
+    790
+   ],
+   "ip": "10.1.40.10/24",
+   "gateway": "10.1.40.1"
+  },
+  {
+   "name": "R5",
+   "model": "2911",
+   "at": [
+    760,
+    520
+   ],
+   "modules": [],
+   "config": [
+    "hostname R5",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 10.2.35.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 10.2.50.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 5.5.5.5",
+    " passive-interface GigabitEthernet0/1",
+    " network 10.2.35.0 0.0.0.3 area 2",
+    " network 10.2.50.0 0.0.0.255 area 2",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW5",
+   "model": "2960-24TT",
+   "at": [
+    760,
+    660
+   ]
+  },
+  {
+   "name": "PC5",
+   "model": "PC-PT",
+   "at": [
+    760,
+    790
+   ],
+   "ip": "10.2.50.10/24",
+   "gateway": "10.2.50.1"
+  },
+  {
+   "name": "R6",
+   "model": "2911",
+   "at": [
+    330,
+    520
+   ],
+   "modules": [
+    "HWIC-2T"
+   ],
+   "config": [
+    "hostname R6",
+    "no ip domain-lookup",
+    "interface Serial0/0/0",
+    " ip address 10.3.26.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/0",
+    " ip address 10.3.60.1 255.255.255.0",
+    " no shutdown",
+    " exit",
+    "router ospf 1",
+    " router-id 6.6.6.6",
+    " passive-interface GigabitEthernet0/0",
+    " network 10.3.26.0 0.0.0.3 area 3",
+    " network 10.3.60.0 0.0.0.255 area 3",
+    " exit"
+   ]
+  },
+  {
+   "name": "SW6",
+   "model": "2960-24TT",
+   "at": [
+    330,
+    660
+   ]
+  },
+  {
+   "name": "PC6",
+   "model": "PC-PT",
+   "at": [
+    330,
+    790
+   ],
+   "ip": "10.3.60.10/24",
+   "gateway": "10.3.60.1"
+  },
+  {
+   "name": "ISP",
+   "model": "2911",
+   "at": [
+    650,
+    120
+   ],
+   "config": [
+    "hostname ISP",
+    "no ip domain-lookup",
+    "interface GigabitEthernet0/0",
+    " ip address 203.0.113.2 255.255.255.252",
+    " no shutdown",
+    " exit",
+    "interface GigabitEthernet0/1",
+    " ip address 198.51.100.1 255.255.255.0",
+    " no shutdown",
+    " exit"
+   ]
+  },
+  {
+   "name": "INET-SRV",
+   "model": "Server-PT",
+   "at": [
+    880,
+    120
+   ],
+   "ip": "198.51.100.10/24",
+   "gateway": "198.51.100.1",
+   "services": {
+    "http": true
+   }
+  }
+ ],
+ "links": [
+  [
+   "PC4:Fa0",
+   "SW4:Fa0/1"
+  ],
+  [
+   "SW4:Gi0/1",
+   "R4:GigabitEthernet0/1"
+  ],
+  [
+   "PC5:Fa0",
+   "SW5:Fa0/1"
+  ],
+  [
+   "SW5:Gi0/1",
+   "R5:GigabitEthernet0/1"
+  ],
+  [
+   "PC6:Fa0",
+   "SW6:Fa0/1"
+  ],
+  [
+   "SW6:Gi0/1",
+   "R6:GigabitEthernet0/0"
+  ],
+  [
+   "R1:Gi0/0",
+   "R2:Gi0/0"
+  ],
+  [
+   "R2:Gi0/1",
+   "R3:Gi0/0"
+  ],
+  [
+   "R1:Gi0/1",
+   "R3:Gi0/1"
+  ],
+  [
+   "R2:Gi0/2",
+   "R4:Gi0/0"
+  ],
+  [
+   "R3:Gi0/2",
+   "R5:Gi0/0"
+  ],
+  {
+   "a": "R2:Se0/0/0",
+   "b": "R6:Se0/0/0",
+   "dce": "R2"
+  },
+  [
+   "R1:Gi0/2",
+   "ISP:Gi0/0"
+  ],
+  [
+   "ISP:Gi0/1",
+   "INET-SRV:Fa0"
+  ]
+ ]
+}
