@@ -50,7 +50,10 @@ class Examples(unittest.TestCase):
             self.assertEqual(xml, open(paths["xml"], "rb").read())
             root = ET.fromstring(xml)
             self.assertEqual(len(root.findall("NETWORK/DEVICES/DEVICE")), 13)
-            self.assertEqual(len(root.findall("NETWORK/LINKS/LINK")), 13)
+            self.assertEqual(len(root.findall("NETWORK/LINKS/LINK")), 14)
+            # the guide's cable total: 8 straight-through, 2 crossover, 3 serial pairs, 1 console
+            cables = sorted(c.findtext("TYPE") or "serial" for c in root.findall("NETWORK/LINKS/LINK/CABLE"))
+            self.assertEqual(cables, ["eCrossOver"] * 2 + ["eRollOver"] + ["eStraightThrough"] * 8 + ["serial"] * 3)
             self.assertEqual(lint.check_net(lint.net_from_xml(root)), [])
 
     def test_build_is_deterministic(self):

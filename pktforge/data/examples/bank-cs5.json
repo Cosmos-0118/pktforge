@@ -150,7 +150,8 @@
     {"a": "R2:Se0/0/1", "b": "R3:Se0/0/0", "dce": "R2", "clock": 64000},
     {"a": "R1:Se0/0/1", "b": "R3:Se0/0/1", "dce": "R1", "clock": 64000},
     ["R2:Gi0/1", "ISP:Gi0/0"],
-    ["ISP:Gi0/1", "PUBLIC-SRV:Fa0"]
+    ["ISP:Gi0/1", "PUBLIC-SRV:Fa0"],
+    ["PC-CSD:RS232", "R1:Console"]
   ],
   "labels": [
     {"text": "LAN A  10.10.10.0/24", "at": [30, 285]},

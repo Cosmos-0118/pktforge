@@ -96,7 +96,7 @@ Config rules:
 |---|---|
 | `pktforge build SPEC [-o DIR] [--no-pkt] [--no-xml] [--force]` | lint, then write `.pkt`, `.xml`, `_cli.txt` |
 | `pktforge check FILE [--strict]` | lint a spec, or audit any existing `.pkt` / `.xml` (also useful on files you did not make) |
-| `pktforge init [NAME] [-t TEMPLATE]` | starter spec. Templates: `minimal`, `bank-cs5` (3 routers, OSPF, NAT), `campus-vlan` (trunks, router-on-a-stick, DHCP, ACL), `ha-campus` (HSRP pair, LACP EtherChannel, RSTP root, port security, DHCP server + relay), `wifi-campus` (AP, laptops on DHCP and static, wired server), `wan-ospf-areas` (7 routers, 4 OSPF areas, MD5, serial, PAT), `two-wan-modules` (router with two HWIC-2T), `model-mix` (14 devices on 10 different models), `hub-spoke-43` (44 devices, no positions) |
+| `pktforge init [NAME] [-t TEMPLATE]` | starter spec. Templates: `minimal`, `bank-cs5` (3 routers, OSPF, NAT, PC-to-router console cable), `campus-vlan` (trunks, router-on-a-stick, DHCP, ACL), `ha-campus` (HSRP pair, LACP EtherChannel, RSTP root, port security, DHCP server + relay), `wifi-campus` (AP, laptops on DHCP and static, wired server), `wan-ospf-areas` (7 routers, 4 OSPF areas, MD5, serial, PAT), `two-wan-modules` (router with two HWIC-2T), `model-mix` (14 devices on 10 different models), `hub-spoke-43` (44 devices, no positions) |
 | `pktforge catalog [--kind K] [--status S] [--md]` | every model: status, ports, modules (`--md` = full report) |
 | `pktforge models [--kind K] [--modules]` | plain list of what you can place |
 | `pktforge ports MODEL [--module HWIC-2T]` | valid port names |
