@@ -1,0 +1,25 @@
+{
+  "name": "minimal",
+  "devices": [
+    {"name": "PC1", "model": "PC-PT", "at": [100, 80], "ip": "192.168.1.10/24", "gateway": "192.168.1.1"},
+    {"name": "PC2", "model": "PC-PT", "at": [320, 80], "ip": "192.168.2.10/24", "gateway": "192.168.2.1"},
+    {"name": "SW1", "model": "2960-24TT", "at": [100, 230]},
+    {"name": "SW2", "model": "2960-24TT", "at": [320, 230]},
+    {"name": "R1", "model": "2911", "at": [210, 380],
+     "config": [
+       "hostname R1",
+       "interface GigabitEthernet0/0",
+       " ip address 192.168.1.1 255.255.255.0",
+       " no shutdown",
+       "interface GigabitEthernet0/1",
+       " ip address 192.168.2.1 255.255.255.0",
+       " no shutdown"
+     ]}
+  ],
+  "links": [
+    ["PC1:Fa0", "SW1:Fa0/1"],
+    ["PC2:Fa0", "SW2:Fa0/1"],
+    ["SW1:Gi0/1", "R1:Gi0/0"],
+    ["SW2:Gi0/1", "R1:Gi0/1"]
+  ]
+}

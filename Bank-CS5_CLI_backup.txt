@@ -1,0 +1,131 @@
+BANK-CS5 - CLI BACKUP (use only if a router comes up unconfigured after opening Bank-CS5.pkt)
+Open the router's CLI tab, answer "no" to the setup dialog if shown, then paste the whole block.
+Commands are exactly those of the CS5 guide (Steps 3-6), merged per router in a safe order.
+Finish each router with:  copy running-config startup-config   (press Enter at the filename prompt)
+
+================ R1 ================
+enable
+configure terminal
+hostname R1
+no ip domain-lookup
+enable secret BankLab2026
+line console 0
+password ConsoleLab2026
+login
+exit
+interface GigabitEthernet0/0
+ip address 10.10.10.1 255.255.255.0
+no shutdown
+exit
+interface Serial0/0/0
+ip address 10.0.12.1 255.255.255.252
+clock rate 64000
+ip ospf cost 10
+no shutdown
+exit
+interface Serial0/0/1
+ip address 10.0.13.1 255.255.255.252
+clock rate 64000
+ip ospf cost 10
+no shutdown
+exit
+router ospf 1
+router-id 1.1.1.1
+passive-interface default
+no passive-interface Serial0/0/0
+no passive-interface Serial0/0/1
+network 10.10.10.0 0.0.0.255 area 0
+network 10.0.12.0 0.0.0.3 area 0
+network 10.0.13.0 0.0.0.3 area 0
+end
+
+================ R2 ================
+enable
+configure terminal
+hostname R2
+no ip domain-lookup
+interface GigabitEthernet0/0
+ip address 10.20.20.1 255.255.255.0
+ip nat inside
+no shutdown
+exit
+interface Serial0/0/0
+ip address 10.0.12.2 255.255.255.252
+ip ospf cost 10
+ip nat inside
+no shutdown
+exit
+interface Serial0/0/1
+ip address 10.0.23.1 255.255.255.252
+clock rate 64000
+ip ospf cost 10
+ip nat inside
+no shutdown
+exit
+interface GigabitEthernet0/1
+ip address 198.51.100.1 255.255.255.252
+ip nat outside
+no shutdown
+exit
+ip route 0.0.0.0 0.0.0.0 198.51.100.2
+router ospf 1
+router-id 2.2.2.2
+passive-interface default
+no passive-interface Serial0/0/0
+no passive-interface Serial0/0/1
+network 10.20.20.0 0.0.0.255 area 0
+network 10.0.12.0 0.0.0.3 area 0
+network 10.0.23.0 0.0.0.3 area 0
+default-information originate
+exit
+ip nat inside source static 10.30.30.10 203.0.113.2
+access-list 1 permit 10.10.10.0 0.0.0.255
+access-list 1 permit 10.20.20.0 0.0.0.255
+ip nat pool BANKPOOL 203.0.113.3 203.0.113.6 netmask 255.255.255.248
+ip nat inside source list 1 pool BANKPOOL
+end
+
+================ R3 ================
+enable
+configure terminal
+hostname R3
+no ip domain-lookup
+interface GigabitEthernet0/0
+ip address 10.30.30.1 255.255.255.0
+no shutdown
+exit
+interface Serial0/0/0
+ip address 10.0.23.2 255.255.255.252
+ip ospf cost 10
+no shutdown
+exit
+interface Serial0/0/1
+ip address 10.0.13.2 255.255.255.252
+ip ospf cost 10
+no shutdown
+exit
+router ospf 1
+router-id 3.3.3.3
+passive-interface default
+no passive-interface Serial0/0/0
+no passive-interface Serial0/0/1
+network 10.30.30.0 0.0.0.255 area 0
+network 10.0.23.0 0.0.0.3 area 0
+network 10.0.13.0 0.0.0.3 area 0
+end
+
+================ ISP ================
+enable
+configure terminal
+hostname ISP
+no ip domain-lookup
+interface GigabitEthernet0/0
+ip address 198.51.100.2 255.255.255.252
+no shutdown
+exit
+interface GigabitEthernet0/1
+ip address 192.0.2.1 255.255.255.0
+no shutdown
+exit
+ip route 203.0.113.0 255.255.255.248 198.51.100.1
+end
