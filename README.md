@@ -18,13 +18,13 @@ hand; they are written down in [`pktforge/data/LESSONS.md`](pktforge/data/LESSON
 macOS / Linux / WSL:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/pktforge/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.sh | sh
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/pktforge/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.ps1 | iex
 ```
 
 Both put a `pktforge` command on your PATH under `~/.pktforge`, need only Python 3.10+, and run a self-test at
@@ -32,9 +32,6 @@ the end. Add `-s -- --with-skill` (sh) or set `$env:PKTFORGE_SKILL = "1"` first 
 Claude skill. Uninstall: `... | sh -s -- --uninstall` or `$env:PKTFORGE_UNINSTALL = "1"`.
 
 From a checkout instead: `python -m pktforge doctor`.
-
-> The commands above use the placeholder `OWNER/pktforge`. After you push the repo to GitHub run
-> `python scripts/set_repo.py yourname/pktforge` once to fill in your name.
 
 ## 60 seconds
 

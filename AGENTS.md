@@ -15,11 +15,11 @@ pktforge build lab.json -o out
 Install if missing (needs Python 3.10+, nothing else):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/pktforge/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.sh | sh
 ```
 
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/pktforge/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.ps1 | iex
 ```
 
 From a checkout without installing: `python -m pktforge <command>`.

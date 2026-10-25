@@ -1,6 +1,6 @@
 #!/bin/sh
 # pktforge installer for macOS / Linux / WSL / Git-Bash.
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/pktforge/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.sh | sh
 #   ... | sh -s -- --with-skill     also installs the Claude skill (~/.claude/skills/pktforge)
 #   ... | sh -s -- --uninstall
 # Env: PKTFORGE_REPO (owner/name), PKTFORGE_REF (branch/tag), PKTFORGE_HOME, PKTFORGE_BIN,
@@ -8,7 +8,7 @@
 # Needs Python 3.10+ and curl or wget. No pip, no root, nothing else is touched.
 set -eu
 
-REPO="${PKTFORGE_REPO:-OWNER/pktforge}"
+REPO="${PKTFORGE_REPO:-Cosmos-0118/pktforge}"
 REF="${PKTFORGE_REF:-main}"
 HOME_DIR="${PKTFORGE_HOME:-$HOME/.pktforge}"
 BIN_DIR="${PKTFORGE_BIN:-$HOME/.local/bin}"

@@ -5,8 +5,8 @@ description: Build a Cisco Packet Tracer 9 (.pkt) lab from a text spec - devices
 
 # pktforge
 
-Install (Python 3.10+ only): `curl -fsSL https://raw.githubusercontent.com/OWNER/pktforge/main/install.sh | sh`
-or on Windows `irm https://raw.githubusercontent.com/OWNER/pktforge/main/install.ps1 | iex`.
+Install (Python 3.10+ only): `curl -fsSL https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.sh | sh`
+or on Windows `irm https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.ps1 | iex`.
 
 Then run `pktforge guide` and follow it. Short version:
 

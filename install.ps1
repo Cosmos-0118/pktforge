@@ -1,5 +1,5 @@
 # pktforge installer for Windows (PowerShell 5.1+ / 7+).
-#   irm https://raw.githubusercontent.com/OWNER/pktforge/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/Cosmos-0118/pktforge/main/install.ps1 | iex
 # Options are environment variables, set before running:
 #   $env:PKTFORGE_SKILL = "1"      also install the Claude skill (~\.claude\skills\pktforge)
 #   $env:PKTFORGE_UNINSTALL = "1"  remove pktforge
@@ -9,7 +9,7 @@
 # Needs Python 3.10+. No pip, no admin rights. Adds %USERPROFILE%\.pktforge\bin to your *user* PATH.
 $ErrorActionPreference = "Stop"
 
-$Repo    = if ($env:PKTFORGE_REPO) { $env:PKTFORGE_REPO } else { "OWNER/pktforge" }
+$Repo    = if ($env:PKTFORGE_REPO) { $env:PKTFORGE_REPO } else { "Cosmos-0118/pktforge" }
 $Ref     = if ($env:PKTFORGE_REF)  { $env:PKTFORGE_REF }  else { "main" }
 $Home_   = if ($env:PKTFORGE_HOME) { $env:PKTFORGE_HOME } else { Join-Path $env:USERPROFILE ".pktforge" }
 $BinDir  = Join-Path $Home_ "bin"
