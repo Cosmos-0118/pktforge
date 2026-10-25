@@ -28,7 +28,7 @@ the full map: valid port names per model, compatible modules, and how Packet Tra
 
 | status | what it means |
 |---|---|
-| `traffic-verified` | Pings crossed it in Packet Tracer 9.0.1: routers `2911 1941 2901 2811 1841 ISR4321 ISR4331`; switches `2960-24TT 2950-24 2950T-24 3560-24PS 3650-24PS Switch-PT`; `PC-PT`, `Laptop-PT`, `Server-PT`, `AccessPoint-PT`. Use these by default. |
+| `traffic-verified` | Pings crossed it in Packet Tracer 9.0.1: routers `2911 1941 2901 2811 1841 ISR4321 ISR4331`; switches `2960-24TT 2950-24 2950T-24 3560-24PS 3650-24PS Switch-PT`; `PC-PT`, `Laptop-PT`, `Server-PT`, `Printer-PT`, `AccessPoint-PT`. Use these by default. |
 | `ports-verified` | Opens in Packet Tracer and keeps its cables under the listed port names (about 30 more: the other access points, home router, WRT300N, Meraki MX65W, IE switches, 5505, ...). No traffic test yet. |
 | `untested` | Template exists, never opened by pktforge's census. Open the result and look. |
 | `rejected` | Packet Tracer refuses any file containing it. Currently none (the old refusals were stale templates, fixed in 0.3.0). |
@@ -120,7 +120,7 @@ Every command except `init`, `decode`, `encode`, `cli-backup`, `schema` and `gui
 
 ## Known limits (be honest about these)
 
-* `pktforge catalog` is the truth about models: 17 have carried traffic, about 30 more keep their cables under the
+* `pktforge catalog` is the truth about models: 18 have carried traffic, about 30 more keep their cables under the
   listed names, the rest are templates nobody has opened in Packet Tracer (`S050` reminds you). Nothing is refused
   any more.
 * **Proven in Packet Tracer 9.0.1** (the `ha-campus`, `wifi-campus`, `two-wan-modules`, `model-mix`, `campus-vlan`,

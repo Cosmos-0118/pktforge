@@ -18,6 +18,7 @@
   "ISR4331",
   "Laptop-PT",
   "PC-PT",
+  "Printer-PT",
   "Server-PT",
   "Switch-PT"
  ],
@@ -63,6 +64,7 @@
   "Meraki-MX65W",
   "Meraki-Server",
   "PC-PT",
+  "Printer-PT",
   "Router-PT",
   "Server-PT",
   "Sniffer",

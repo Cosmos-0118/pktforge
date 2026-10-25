@@ -6,7 +6,7 @@ Use the **model** column as `"model"` in a spec and the **ports** column in `lin
 
 | status | models | meaning |
 |---|---|---|
-| traffic-verified | 17 | Traffic passed in Packet Tracer 9.0.1. Safe default. |
+| traffic-verified | 18 | Traffic passed in Packet Tracer 9.0.1. Safe default. |
 | ports-verified | 28 | Opens in Packet Tracer 9.0.1 and keeps its cables under the names listed. No traffic test yet. |
 | untested | 93 | A template exists but was never opened in Packet Tracer by pktforge. Check the result by hand. |
 | rejected | 0 | Packet Tracer 9.0.1 refuses to open a file containing it. pktforge will not build it; add it by hand. |
@@ -212,7 +212,7 @@ What the on-screen palette calls each device, and the pktforge `model` for it (`
 | Server | `Server-PT` | traffic-verified |
 | Meraki Server | `Meraki-Server` | ports-verified |
 | Network Controller | - | no template |
-| Printer | - | no template |
+| Printer | `Printer-PT` | traffic-verified |
 | IP Phone | - | no template |
 | VoIP Device | `Home-VoIP-PT` | untested |
 | Phone | `Analog-Phone-PT` | untested |
@@ -227,11 +227,11 @@ _The Wireless Devices, Switches and the four other End Devices sections (Home, I
 
 ## Everything else
 
-90 more templates (IoT sensors, appliances, VoIP, cloud...). They build, but pktforge has not opened them in Packet Tracer; run `pktforge models` to list them.
+91 more templates (IoT sensors, appliances, VoIP, cloud...). They build, but pktforge has not opened them in Packet Tracer; run `pktforge models` to list them.
 
 ## In Packet Tracer's palette but with no pktforge template
 
-`819`, `Cable-Modem-PT`, `CoAxialSplitter-PT`, `IE2000`, `Printer-PT`, `Repeater-PT`, `TV-PT`, `WMP300N`, `WPC300N`, `WRT300N`, `WiredDevice-PT`, `WirelessEndDevice-PT`.
+`819`, `Cable-Modem-PT`, `CoAxialSplitter-PT`, `IE2000`, `Repeater-PT`, `TV-PT`, `WMP300N`, `WPC300N`, `WRT300N`, `WiredDevice-PT`, `WirelessEndDevice-PT`.
 
 Add these by hand in Packet Tracer after opening the generated file.
 

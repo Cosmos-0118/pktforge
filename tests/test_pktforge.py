@@ -311,11 +311,25 @@ class StressLessons(unittest.TestCase):
         self.assertLess(pos["BR1"][1], pos["SW1"][1])
         self.assertLess(pos["SW1"][1], pos["PC1-1"][1])
 
+    def test_printer_keeps_its_address_and_cable(self):
+        s = sp([{"name": "PRN", "model": "Printer-PT", "ip": "192.168.1.20/24", "gateway": "192.168.1.1"},
+                {"name": "SW", "model": "2960-24TT"},
+                {"name": "R1", "model": "2911", "config": ["interface GigabitEthernet0/0",
+                                                            " ip address 192.168.1.1 255.255.255.0", " no shutdown"]}],
+               [["PRN:Fa0", "SW:Fa0/1"], ["SW:Gi0/1", "R1:Gi0/0"]])
+        self.assertEqual(codes(cli.check_spec(s)), set())
+        root, _ = built(s)
+        prn =dev_of(root, "PRN")
+        self.assertEqual(prn.find("ENGINE/TYPE").get("model"), "Printer-PT")
+        self.assertEqual(prn.findtext(".//PORT/IP"), "192.168.1.20")
+        self.assertEqual(len(root.findall("NETWORK/LINKS/LINK")), 2)
+
     def test_catalog(self):
         from pktforge import catalog
         es = {e["model"]: e for e in catalog.entries()}
         self.assertEqual(es["2911"]["status"], "traffic-verified")
         self.assertEqual(es["AccessPoint-PT"]["status"], "traffic-verified")
+        self.assertEqual(es["Printer-PT"]["status"], "traffic-verified")
         self.assertEqual(es["Meraki-MX65W"]["status"], "ports-verified")
         self.assertEqual(es["LAP-PT"]["kind"], "access-point")
         md = catalog.markdown()

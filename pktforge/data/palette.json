@@ -26,7 +26,7 @@
     "End Devices": {
       "End Devices": [
         ["PC", "PC-PT"], ["Laptop", "Laptop-PT"], ["Server", "Server-PT"], ["Meraki Server", "Meraki-Server"],
-        ["Network Controller", null], ["Printer", null], ["IP Phone", null], ["VoIP Device", "Home-VoIP-PT"],
+        ["Network Controller", null], ["Printer", "Printer-PT"], ["IP Phone", null], ["VoIP Device", "Home-VoIP-PT"],
         ["Phone", "Analog-Phone-PT"], ["TV", null], ["Tablet", "TabletPC-PT"], ["Smart Phone", "SMARTPHONE-PT"],
         ["Generic Wireless", null], ["Generic Wired", null], ["Sniffer", "Sniffer"]
       ]
