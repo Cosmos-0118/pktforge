@@ -6,8 +6,8 @@ Use the **model** column as `"model"` in a spec and the **ports** column in `lin
 
 | status | models | meaning |
 |---|---|---|
-| traffic-verified | 18 | Traffic passed in Packet Tracer 9.0.1. Safe default. |
-| ports-verified | 28 | Opens in Packet Tracer 9.0.1 and keeps its cables under the names listed. No traffic test yet. |
+| traffic-verified | 19 | Traffic passed in Packet Tracer 9.0.1. Safe default. |
+| ports-verified | 27 | Opens in Packet Tracer 9.0.1 and keeps its cables under the names listed. No traffic test yet. |
 | untested | 93 | A template exists but was never opened in Packet Tracer by pktforge. Check the result by hand. |
 | rejected | 0 | Packet Tracer 9.0.1 refuses to open a file containing it. pktforge will not build it; add it by hand. |
 
@@ -36,7 +36,7 @@ Packet Tracer palette: Network Devices > Routers
 | `ISR4321` | traffic-verified | GigabitEthernet0/0/0-1 | NIM-2T |  |
 | `ISR4331` | traffic-verified | GigabitEthernet0/0/0-2 | GLC-T, GLC-TE, NIM-2T |  |
 | `Linksys-WRT300N` | ports-verified | Internet, Ethernet 1-4 | - |  |
-| `Router-PT` | ports-verified | FastEthernet0/0, FastEthernet1/0, Serial2/0, Serial3/0, FastEthernet4/0, FastEthernet5/0 | PT-ROUTER-NM-1CFE, PT-ROUTER-NM-1FFE, PT-ROUTER-NM-1S | fibre (no copper cable): FastEthernet4/0, FastEthernet5/0 |
+| `Router-PT` | traffic-verified | FastEthernet0/0, FastEthernet1/0, Serial2/0, Serial3/0, FastEthernet4/0, FastEthernet5/0 | PT-ROUTER-NM-1CFE, PT-ROUTER-NM-1FFE, PT-ROUTER-NM-1S | fibre (no copper cable): FastEthernet4/0, FastEthernet5/0 |
 
 ## Switches
 
@@ -142,7 +142,7 @@ What the on-screen palette calls each device, and the pktforge `model` for it (`
 | 829 | `829` | ports-verified |
 | 1240 | `CGR1240` | ports-verified |
 | IR1101 | `IR1101` | ports-verified |
-| PT-Router | `Router-PT` | ports-verified |
+| PT-Router | `Router-PT` | traffic-verified |
 | PT-Empty | - | no template |
 | 1841 | `1841` | traffic-verified |
 | 2620XM | `2620XM` | ports-verified |

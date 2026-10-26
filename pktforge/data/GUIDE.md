@@ -28,7 +28,7 @@ the full map: valid port names per model, compatible modules, and how Packet Tra
 
 | status | what it means |
 |---|---|
-| `traffic-verified` | Pings crossed it in Packet Tracer 9.0.1: routers `2911 1941 2901 2811 1841 ISR4321 ISR4331`; switches `2960-24TT 2950-24 2950T-24 3560-24PS 3650-24PS Switch-PT`; `PC-PT`, `Laptop-PT`, `Server-PT`, `Printer-PT`, `AccessPoint-PT`. Use these by default. |
+| `traffic-verified` | Pings crossed it in Packet Tracer 9.0.1: routers `2911 1941 2901 2811 1841 ISR4321 ISR4331 Router-PT`; switches `2960-24TT 2950-24 2950T-24 3560-24PS 3650-24PS Switch-PT`; `PC-PT`, `Laptop-PT`, `Server-PT`, `Printer-PT`, `AccessPoint-PT`. Use these by default. |
 | `ports-verified` | Opens in Packet Tracer and keeps its cables under the listed port names (about 30 more: the other access points, home router, WRT300N, Meraki MX65W, IE switches, 5505, ...). No traffic test yet. |
 | `untested` | Template exists, never opened by pktforge's census. Open the result and look. |
 | `rejected` | Packet Tracer refuses any file containing it. Currently none (the old refusals were stale templates, fixed in 0.3.0). |
@@ -120,7 +120,7 @@ Every command except `init`, `decode`, `encode`, `cli-backup`, `schema` and `gui
 
 ## Known limits (be honest about these)
 
-* `pktforge catalog` is the truth about models: 18 have carried traffic, about 30 more keep their cables under the
+* `pktforge catalog` is the truth about models: 19 have carried traffic, about 30 more keep their cables under the
   listed names, the rest are templates nobody has opened in Packet Tracer (`S050` reminds you). Nothing is refused
   any more.
 * **Proven in Packet Tracer 9.0.1** (the `ha-campus`, `wifi-campus`, `two-wan-modules`, `model-mix`, `campus-vlan`,
@@ -128,7 +128,11 @@ Every command except `init`, `decode`, `encode`, `cli-backup`, `schema` and `gui
   router-on-a-stick, router DHCP pools, **server DHCP pools with `ip helper-address`**, extended ACLs, OSPF
   (multi-area, MD5), PAT, serial links on **two WAN cards**, **HSRP**, **LACP EtherChannel**, **RSTP root
   priority**, **port security** (access mode, maximum, violation), **fibre (multimode) and console cables**,
-  **open-SSID wireless** with DHCP and static clients.
+  **open-SSID wireless** with DHCP and static clients, **eBGP** (`router bgp` / `neighbor ... remote-as` / `network ... mask`),
+  **EIGRP** (`router eigrp N` / `network`, over serial links on `Router-PT`), **Telnet** (`line vty` + `password` +
+  `transport input all`) and **SSH**. For SSH write `ip domain-name X` and `crypto key generate rsa modulus 768` (or the
+  manual's `crypto key generate rsa` followed by `768`); Packet Tracer cannot create a key from a config, so pktforge
+  fits one it saved (512, 768 or 1024 bits) and `ip ssh version 2` needs 768 or more (`E033`, `E034`, `W094`).
 * **Linted but never run in Packet Tracer:** PAgP/`on` EtherChannel, sticky MAC learning, BPDU guard, HSRP on
   layer-3 switch SVIs, routed EtherChannel, IPv6, DHCP snooping.
 * **Not supported:** WPA/WEP wireless security and wireless controllers (LAP-PT + WLC), single-mode fibre, coaxial,

@@ -333,6 +333,7 @@ class StressLessons(unittest.TestCase):
         self.assertEqual(es["2911"]["status"], "traffic-verified")
         self.assertEqual(es["AccessPoint-PT"]["status"], "traffic-verified")
         self.assertEqual(es["Printer-PT"]["status"], "traffic-verified")
+        self.assertEqual(es["Router-PT"]["status"], "traffic-verified")
         self.assertEqual(es["Meraki-MX65W"]["status"], "ports-verified")
         self.assertEqual(es["LAP-PT"]["kind"], "access-point")
         md = catalog.markdown()
@@ -629,6 +630,64 @@ class WirelessAndPortNames(unittest.TestCase):
         root, _ = built(s)
         self.assertEqual([p.text for p in root.findall("NETWORK/LINKS/LINK")[0].findall("CABLE/PORT")],
                          ["GigabitEthernet 3", "GigabitEthernet0/1"])
+
+
+class RemoteAccess(unittest.TestCase):
+    """Telnet and SSH (LESSONS L22). Packet Tracer cannot make an RSA key from a config, so pktforge fits one."""
+
+    LAN = ["interface GigabitEthernet0/0", " ip address 192.168.1.1 255.255.255.0", " no shutdown", " exit"]
+    VTY = ["enable secret access", "line vty 0 1", " transport input ssh", " password cisco", " exit"]
+
+    def lab(self, *config):
+        return sp([{"name": "PC0", "model": "PC-PT", "ip": "192.168.1.2/24", "gateway": "192.168.1.1"},
+                   {"name": "SW", "model": "Switch-PT"},
+                   {"name": "R1", "model": "2911", "config": ["hostname R1"] + self.LAN + list(config)}],
+                  [["PC0:Fa0", "SW:Fa0/1"], ["SW:Fa1/1", "R1:Gi0/0"]])
+
+    def security(self, root):
+        return {c.tag: (c.text or "") for c in dev_of(root, "R1").find("ENGINE/SECURITY")}
+
+    def test_key_is_fitted_and_the_config_keeps_its_domain_name(self):
+        s = self.lab("ip domain-name simplenetworking", "crypto key generate rsa", "768", "ip ssh version 2", *self.VTY)
+        self.assertFalse(has_errors(cli.check_spec(s)))
+        root, issues = built(s)
+        sec = self.security(root)
+        self.assertEqual((sec["KEY_NAME"], sec["MODULUS_BITS"], sec["ENABLED"]), ("R1.simplenetworking", "768", "1"))
+        self.assertTrue(sec["RSA_KEY"].strip())
+        self.assertIn("S062", codes(issues))
+        for tag in ("RUNNINGCONFIG", "STARTUPCONFIG"):
+            lines = [l.text for l in dev_of(root, "R1").findall("ENGINE/%s/LINE" % tag)]
+            self.assertIn("ip domain-name simplenetworking", lines)
+            self.assertFalse([l for l in lines if "crypto" in l or l == "768"], lines)
+        running = [l.text for l in dev_of(root, "R1").findall("ENGINE/RUNNINGCONFIG/LINE")]
+        self.assertEqual(running[running.index("hostname R1") + 1], "ip domain-name simplenetworking")
+        self.assertEqual([i.code for i in lint.check_xml(root) if i.severity == "error"], [])
+
+    def test_modulus_forms(self):
+        for lines, bits in ((["crypto key generate rsa modulus 1024"], "1024"),
+                            (["crypto key generate rsa", "758"], "768"),      # not a shipped size: the next one up
+                            (["crypto key generate rsa"], "512")):             # IOS default at the prompt
+            root, _ = built(self.lab("ip domain-name lab.local", *lines))
+            self.assertEqual(self.security(root)["MODULUS_BITS"], bits, lines)
+
+    def test_ssh_rules(self):
+        self.assertIn("E033", codes(cli.check_spec(self.lab("crypto key generate rsa modulus 768"))))
+        self.assertIn("E034", codes(cli.check_spec(self.lab("ip domain-name x", "crypto key generate rsa", "ip ssh version 2"))))
+        self.assertIn("E034", codes(cli.check_spec(self.lab("ip ssh version 2"))))
+        self.assertIn("W094", codes(cli.check_spec(self.lab("ip domain-name x", *self.VTY[:2], " transport input ssh"))))
+        ok = self.lab("ip domain-name x", "crypto key generate rsa modulus 768", "ip ssh version 2", *self.VTY)
+        self.assertEqual(codes(cli.check_spec(ok)), set())
+
+    def test_telnet_needs_no_key(self):
+        s = self.lab("enable password access", "line vty 0 1", " password cisco", " transport input all", " exit")
+        self.assertEqual(codes(cli.check_spec(s)), set())
+        root, _ = built(s)
+        self.assertEqual(self.security(root).get("ENABLED"), "0")
+
+    def test_cli_backup_asks_the_way_packet_tracer_does(self):
+        text = build.cli_backup(self.lab("ip domain-name x", "crypto key generate rsa modulus 768"))
+        self.assertIn("crypto key generate rsa\n768", text)
+        self.assertNotIn("modulus", text)
 
 
 if __name__ == "__main__":

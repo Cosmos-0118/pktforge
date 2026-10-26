@@ -121,10 +121,24 @@ inside the AP's coverage (140 units for `AccessPoint-PT`, 250 for home routers),
 units from their AP. Verified: laptop got `10.9.1.10` from a router pool over the AP and pinged a wired server
 (TTL 127). Open networks only: the WPA/WEP enum values were not captured.
 
+**L22. SSH needs a key Packet Tracer cannot create from a config.** A saved config with `crypto key generate rsa` left
+the router with `SSH Disabled`: its CLI has no `modulus` keyword (`crypto key generate rsa ?` offers only
+`general-keys`), and on replay the "How many bits" prompt is skipped, so a following `768` line is run as a command and
+the key is 512 bits (`SSH Enabled - version 1.5`, and `ip ssh version 2` answers `Please create RSA keys (of at least 768
+bits size)`). The key is stored in `ENGINE/SECURITY` (`KEY_NAME` = `hostname.domain`, `RSA_KEY`, `MODULUS_BITS`, `ENABLED`),
+so pktforge removes the key-generation lines and writes a key Packet Tracer saved (`data/ssh_keys.json`: 512, 768 and
+1024 bits; `scripts/harvest_ssh_keys.py` adds more). `lab_api.ensure_ios_hostname` also deletes `ip domain-name` from the
+running config, and the key needs it, so pktforge puts it back under the hostname. Write either `crypto key generate rsa
+modulus 768` or the manual's `crypto key generate rsa` followed by `768`. Verified: `ssh -l R1 192.168.1.1` from a PC
+asked for the password, `en` + the enable secret gave `R1#`, and `show ip ssh` read `SSH Enabled - version 2.0`. Telnet
+(`line vty 0 1` + `password` + `transport input all`) needs nothing special: `telnet 192.168.1.1` reached `Router0#`.
+The keys exist only inside the simulator and are shared by every pktforge lab.
+
 ## Rules the linter enforces (each one is a way to get "looks right, doesn't work")
 
 | code | meaning |
 |---|---|
+| E033 / E034 / W094 | `crypto key generate rsa` without `ip domain-name` / `ip ssh version 2` with a key under 768 bits or none (Packet Tracer refuses the line) / `transport input ssh` but no RSA key, so SSH never starts |
 | E021 | the two ends of an EtherChannel use modes that never bundle (`on` vs `active`, `passive`/`passive`...) |
 | E022 | `switchport port-security` before `switchport mode access` (IOS rejects it on a dynamic port; the wrong order itself was not tried in Packet Tracer) |
 | E023 | `spanning-tree vlan N priority X` where X is not a multiple of 4096 |

@@ -12,7 +12,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 import pktforge
-from pktforge import iosparse, lint, ports
+from pktforge import iosparse, lint, ports, sshkeys
 from pktforge.issues import ERROR, INFO, WARNING, Issue, SpecError
 
 import lab_api
@@ -206,10 +206,21 @@ def _ios_document(dev, extra_lines):
     c = ["!", "version 15.1", "no service timestamps log datetime msec",
          "no service timestamps debug datetime msec", "no service password-encryption", "!",
          "hostname " + dev.name, "!"]
-    c += [l for l in dev.config if not re.match(r"^\s*hostname\s", l, re.I)]
+    c += [l for l in sshkeys.split_config(dev.config)[0] if not re.match(r"^\s*hostname\s", l, re.I)]
     c += extra_lines
     c += ["!", "end"]
     return c
+
+
+def _restore_domain(el, hostname, domain):
+    """lab_api.ensure_ios_hostname drops `ip domain-name` from the running config; SSH needs it back, under the hostname."""
+    config = el.find("ENGINE/RUNNINGCONFIG")
+    for i, line in enumerate(config.findall("LINE")):
+        if (line.text or "").strip() == "hostname " + hostname:
+            new = ET.Element("LINE")
+            new.text = "ip domain-name " + domain
+            config.insert(i + 1, new)
+            return
 
 
 def _put_config(el, lines):
@@ -452,6 +463,22 @@ def build_lab(spec):
                         e.text = None
         lab_api.ensure_ios_hostname(device)
 
+    # ---- SSH (LESSONS L22): ensure_ios_hostname dropped `ip domain-name`, and a key is not config text
+    for d in spec.devices:
+        if kinds[d.name] not in ports.IOS_KINDS:
+            continue
+        _, wanted, domain = sshkeys.split_config(d.config)
+        if domain is None:
+            continue
+        el = lab._els[ids[d.name]]
+        _restore_domain(el, d.name, domain)
+        if wanted:
+            size = sshkeys.pick(wanted)
+            sshkeys.apply(el.find("ENGINE"), d.name, domain, size)
+            issues.append(Issue("S062", INFO, "%s: gave the router a %d-bit RSA key%s (Packet Tracer cannot create one "
+                                "from a config)" % (d.name, size, "" if size == wanted else " for the requested %d" % wanted),
+                                "device " + d.name))
+
     _add_labels(lab, spec, pos)
     manual = [
         "Open the file in Packet Tracer and run `show ip interface brief` on each router before trusting it; "
@@ -668,7 +695,7 @@ def cli_backup(spec):
         if lab_api.kind_for_model(d.model) not in ports.IOS_KINDS or not d.config:
             continue
         out += ["================ %s ================" % d.name, "enable", "configure terminal"]
-        out += [l for l in d.config if l.strip() and l.strip() != "!"]
+        out += [l for l in sshkeys.interactive(d.config) if l.strip() and l.strip() != "!"]
         out += ["end", "copy running-config startup-config", ""]
     return "\n".join(out)
 

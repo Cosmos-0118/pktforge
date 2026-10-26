@@ -16,7 +16,7 @@ hand; they are written down in [`pktforge/data/LESSONS.md`](pktforge/data/LESSON
   campus (HSRP, LACP EtherChannel, RSTP, port security, DHCP server with relay), a wireless campus (AP, DHCP and
   static laptops), a router with two WAN cards, and a 14-device network of 10 different router and switch models.
 * Knows what Packet Tracer will and won't load: a device catalogue built by opening device models in Packet
-  Tracer ([`DEVICES.md`](DEVICES.md)): 18 models have carried traffic, about 30 more keep their cables.
+  Tracer ([`DEVICES.md`](DEVICES.md)): 19 models have carried traffic, about 30 more keep their cables.
 
 ## Install
 
@@ -84,11 +84,12 @@ clients on an SSID nobody broadcasts or outside the AP's range. `pktforge check`
 
 ## Honest limits
 
-Traffic has been passed through 18 models (routers 2911, 1941, 2901, 2811, 1841, ISR4321, ISR4331; switches
+Traffic has been passed through 19 models (routers 2911, 1941, 2901, 2811, 1841, ISR4321, ISR4331, Router-PT; switches
 2960-24TT, 2950-24, 2950T-24, 3560-24PS, 3650-24PS, Switch-PT; PC-PT, Laptop-PT, Server-PT, Printer-PT, AccessPoint-PT). About 30
 more models were opened and kept their cables but never carried traffic, and the rest are templates nobody has
 opened (`pktforge catalog` says which). Config that was proven to replay: VLANs, trunks, router-on-a-stick, router
-and server DHCP, ACLs, OSPF, PAT, serial on two WAN cards, HSRP, LACP EtherChannel, RSTP, port security. Console and
+and server DHCP, ACLs, OSPF, eBGP, EIGRP, PAT, serial on two WAN cards, HSRP, LACP EtherChannel, RSTP, port security,
+Telnet and SSH (pktforge supplies the RSA key; see LESSONS L22). Console and
 multimode-fibre cables and open-SSID wireless work too.
 
 Not supported: WPA/WEP wireless and wireless controllers, single-mode fibre, coaxial/phone/USB cables, `.pka`

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field, replace
 import pktforge  # noqa: F401  (puts the vendored modules on sys.path)
 import lab_api
 
-from pktforge import iosparse
+from pktforge import iosparse, sshkeys
 from pktforge.iosparse import Iface
 from pktforge.issues import ERROR, INFO, WARNING, Issue
 from pktforge.ports import ENDPOINT_KINDS, IOS_KINDS, canon_port, is_console_port, is_switch_like
@@ -31,6 +31,8 @@ class NDev:
     dhcp: bool = False
     has_ip_cfg: bool = True
     dhcp_pools: list = field(default_factory=list)    # servers: [{"network", "gateway"}]
+    ssh_bits: int = None                               # size of the RSA key the router will have, None = no key
+    keygen_no_domain: bool = False                    # asks for a key but never sets `ip domain-name`
 
     @property
     def is_end(self):
@@ -84,6 +86,10 @@ def _ios_dev(name, model, kind, lines):
     nd = NDev(name, model, kind, config=list(lines))
     nd.cfg = iosparse.parse(lines)
     nd.ifaces = nd.cfg.ifaces
+    _, wanted, domain = sshkeys.split_config(lines)
+    if wanted and domain:
+        nd.ssh_bits = sshkeys.pick(wanted)
+    nd.keygen_no_domain = bool(wanted) and not domain
     return nd
 
 
@@ -122,6 +128,9 @@ def net_from_xml(root):
         lines = [l.text or "" for l in eng.findall("RUNNINGCONFIG/LINE")]
         if kind in IOS_KINDS:
             nd = _ios_dev(name, model, kind, lines)
+            sec = eng.find("SECURITY")                    # a saved key lives here, not in the config text
+            if sec is not None and sec.findtext("ENABLED") == "1" and (sec.findtext("MODULUS_BITS") or "").isdigit():
+                nd.ssh_bits = int(sec.findtext("MODULUS_BITS"))
         else:
             nd = NDev(name, model, kind, config=lines)
             p = d.find(".//PORT")
@@ -316,6 +325,23 @@ def check_net(net, verified_ports=None):
         for pool, rule in dev.cfg.nat_bad_pool:
             out.append(Issue("E017", ERROR, "%s: `%s` uses NAT pool %s before it is defined" % (dev.name, rule, pool),
                              dev.name, "write `ip nat pool %s ...` earlier in the config" % pool))
+
+    # --- SSH (LESSONS L22): a key needs a domain name, version 2 needs 768 bits, `transport input ssh` needs a key
+    for dev in net.devs.values():
+        if dev.kind not in IOS_KINDS:
+            continue
+        text = [l.strip().lower() for l in dev.config]
+        if dev.keygen_no_domain:
+            out.append(Issue("E033", ERROR, "%s: `crypto key generate rsa` without `ip domain-name`" % dev.name, dev.name,
+                             "IOS answers `Please define a domain-name first`; add e.g. `ip domain-name lab.local`"))
+        if "ip ssh version 2" in text and (dev.ssh_bits or 0) < 768:
+            out.append(Issue("E034", ERROR, "%s: `ip ssh version 2` needs an RSA key of at least 768 bits (%s)" % (
+                dev.name, "it has %d" % dev.ssh_bits if dev.ssh_bits else "it has none"), dev.name,
+                "write `ip domain-name X` and `crypto key generate rsa` with 768 (or 1024); Packet Tracer refuses the line "
+                "otherwise"))
+        if dev.ssh_bits is None and any(re.match(r"transport input .*\bssh\b", l) for l in text):
+            out.append(Issue("W094", WARNING, "%s: `transport input ssh` but the router has no RSA key, so SSH never "
+                             "starts" % dev.name, dev.name, "add `ip domain-name X` and `crypto key generate rsa`"))
 
     # --- duplicate IPs
     seen = {}
